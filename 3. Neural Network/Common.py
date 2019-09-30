@@ -44,6 +44,7 @@ def LoadingDatasets(ratio, patch_n, train_ratio, useDis = False, useSED = False)
     return LR_set_train, LR_set_test, HR_set_train, HR_set_test, BC_train, BC_test ,SED_train, SED_test
 
 def Load_LRDV(ratio, subject):
+    # y가 0 이면 밑에서 부터임.
     with open("../0. Datas and Preprocessing/DV/r%d/DV_r%d_s%d.DAT" % (ratio, ratio, subject), 'r') as LR_file:
         [NY, NX] = [math.floor(height/ratio), math.floor(width/ratio)]
         LR_DV = np.zeros((NY, NX))
@@ -203,56 +204,30 @@ class LiveDrawing(keras.callbacks.Callback):
 
     def predictModel(self, model, subject):
         [NY, NX, ratio, patch_n, rp] = [self.NY, self.NX, self.ratio, self.patch_n, self.rp]
-        [patch_nx, patch_ny] = [math.floor(NX/patch_n), math.floor(NY/patch_n)]
         HR_DV = np.zeros((height, width, 1))
         LR_DV = Load_LRDV(ratio, subject)
-        if self.useDis: Displacement = Load_Dis(ratio, subject)
+        LR_patch = np.zeros((1, patch_n, patch_n, 1))
+        if self.useDis:
+            Dis_patch = np.zeros((1, patch_n+1, patch_n+1, 6))
+            Displacement = Load_Dis(ratio, subject)
         if self.useSED:
-            SED_patch = np.zeros((3 * patch_n, 3 * patch_n, 3))
+            SED_patch = np.zeros((1, patch_n, patch_n, 3))
             SED = Load_SED(ratio, subject)
 
-        # for winy in range(0, NY, patch_n):
-        #     for winx in range(0, NX, patch_n):
-        #         i = NY - patch_n if winy > NY - patch_n else winy
-        #         j = NX - patch_n if winx > NX - patch_n else winx
-        #         # 주변 부 모두 trabecualr면 해당 patch predict하고 아니면 그냥 넣기
-        #         HR_DV[i*ratio:(i+1)*ratio, j*ratio:(j+1)*ratio, 0] = LR_DV[i, j]
-        #         LR_patch[0, :, :, 0] = LR_DV[i:i+patch_n, j:j+patch_n]
-        #         if self.useDis:
-        #             Dis_patch[0, :, :, :] = Displacement[i:i+patch_n+1,j:j+patch_n+1]
-        #             predict_patch = model.predict([LR_patch, Dis_patch])
-        #         else: predict_patch = model.predict(LR_patch)
-        #         predict_patch = np.reshape(predict_patch, (1, rp, rp))
-        #         HR_DV[i * ratio: i*ratio + rp, j * ratio: j*ratio +rp, 0] = predict_patch
-
-        '''Adj부분을 위한 Predict Model'''
         for winy in range(0, NY, patch_n):
             for winx in range(0, NX, patch_n):
                 i = NY - patch_n if winy > NY - patch_n else winy
                 j = NX - patch_n if winx > NX - patch_n else winx
-                [Lox, Ldx, Pox, Pdx, Loy, Ldy, Poy, Pdy]= [j-patch_n, j+2*patch_n, 0, 3*patch_n, i-patch_n, i+2*patch_n, 0, 3*patch_n]
-                [HPox, HPdx, HPoy, HPdy, HRox, HRdx, HRoy, HRdy] = [0, patch_n*ratio, 0, patch_n*ratio, j*ratio, (j+patch_n)*ratio, i*ratio, (i+patch_n)*ratio]
-                LR_patch = np.zeros((3*patch_n, 3*patch_n, 1))
-
-                if Lox < 0:
-                    [Lox, Ldx, Pox, Pdx] = [0, j+2*patch_n, patch_n-j, 3*patch_n]
-                elif Ldx > NX - 1:
-                    [Lox, Ldx, Pox, Pdx] = [j-patch_n, NX, 0, NX + patch_n -j]
-                if Loy < 0:
-                    [Loy, Ldy, Poy, Pdy] = [0, i+2*patch_n, patch_n-i, 3*patch_n]
-                elif Ldy > NY - 1:
-                    [Loy, Ldy, Poy, Pdy] = [i-patch_n, NY, 0, NY+patch_n-i]
-                if (j+patch_n)*ratio >= width:
-                    [HPdx, HRdx] = [width - j * ratio, width]
-                if (i+patch_n)*ratio >= height:
-                    [HPdy, HRdy] = [height - i * ratio, height]
+                # 주변 부 모두 trabecualr면 해당 patch predict하고 아니면 그냥 넣기
                 HR_DV[i*ratio:(i+1)*ratio, j*ratio:(j+1)*ratio, 0] = LR_DV[i, j]
-                LR_patch[Poy:Pdy, Pox:Pdx, :] = np.expand_dims(LR_DV[Loy:Ldy, Lox:Ldx], axis = 2)
-                if self.useSED:
-                    SED_patch[Poy:Pdy, Pox:Pdx, :] = SED[Loy:Ldy, Lox:Ldx,:]
-                # HR_patch[HPoy:HPdy, HPox:HPdx, :] = HR_DV[HRoy:HRdy, HRox:HRdx]
-                predict_patch = model.predict([np.expand_dims(LR_patch,axis = 0), np.expand_dims(SED_patch, axis=0)])
-                HR_DV[i * ratio: i*ratio + rp, j * ratio: j*ratio +rp, :] = predict_patch
+                LR_patch[0, :, :, 0] = LR_DV[i:i+patch_n, j:j+patch_n]
+                if self.useDis:
+                    Dis_patch[0, :, :, :] = Displacement[i:i+patch_n+1,j:j+patch_n+1]
+                    predict_patch = model.predict([LR_patch, Dis_patch])
+                else: predict_patch = model.predict(LR_patch)
+                predict_patch = np.reshape(predict_patch, (1, rp, rp))
+                HR_DV[i * ratio: i*ratio + rp, j * ratio: j*ratio +rp, 0] = predict_patch
+
         return HR_DV
 
     def EfrosFreeman(self, model, subject, step = 0):

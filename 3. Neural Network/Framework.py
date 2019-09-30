@@ -17,12 +17,12 @@ if __name__ == '__main__':
     K.set_session(tf.Session(config=config))
 
     # Initialization
-    [isGAN, useDis, useSED, epoch_show] = [False, False, False, False]
+    [isGAN, useDis, useSED, epoch_show] = [True, False, False, False]
     [ratio, patch_n] = [10, 8]
     [epochs, batch_size, train_ratio] = [20, 16, 10/11]
     rp = ratio*patch_n
     now = time.localtime()
-    modelname="Adj_Feasibility"
+    modelname="SRGAN_BVTV"
     filepath = "Models/%s-%02d-%02d-%02d-%02d/" % (modelname, now.tm_mon, now.tm_mday, now.tm_hour, now.tm_min)
     os.makedirs(filepath, exist_ok=True)
     LR_set_train, LR_set_test, HR_set_train, HR_set_test, BC_train, BC_test, SED_train, SED_test = LoadingDatasets(ratio, patch_n,

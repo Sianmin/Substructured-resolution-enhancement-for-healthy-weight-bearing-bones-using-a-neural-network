@@ -142,15 +142,18 @@ def getApparentElasticModulus():
                 force_sum = force_sum * 4/math.pi # 전단 응력의 경우 side length 만큼 옮겨주면 전단 변형률이 pi/4
             E[case-1] = force_sum/(side_length*resolution)
     print("{}\t{}\t{}".format(E[0], E[1], E[2]))
-
+def getMorphometricIndices(ROI):
+    # BVTV
+    print("{}%".format(np.sum(ROI)/(side_length**2)*100))
 if __name__ == '__main__':
     epoch = 2
     # 이미지 불러오기
     plt.gray()
-    for subject in range(1, 12):
-        TargetModel = "SRGAN-09-18-00-14"
+    for subject in range(1, 2):
+        TargetModel = "SRGAN_BVTV-09-30-20-34"
         TargetPath = "../3. Neural Network/Models/Completed/{}/{:02d}-predict_subject{}.png".format(TargetModel, epoch, subject)
         TargetPath = "../3. Neural Network/Models/Completed/{}/Quilt_subject{}.png".format(TargetModel, subject)
+        TargetPath = "../3. Neural Network/Models/{}/Quilt_subject{}.png".format(TargetModel, subject)
         ref_img = rgb2gray(plt.imread('../0. Datas and Preprocessing/IMAGE/r1/IMG_r1_s{}.png'.format(subject)))
         target_img = rgb2gray(plt.imread(TargetPath))
         total_img = (plt.imread('../0. Datas and Preprocessing/IMAGE/r1/IMG_r1_s{}.png'.format(subject)))
@@ -167,8 +170,10 @@ if __name__ == '__main__':
             # total_img[oy:oy+side_length, ox:ox+side_length, 1:3] = 0
             # plt.imsave('Total_{}_Reference.png'.format(ROI_name[roi_index]), where_img)
             # plt.imsave('Total_Reference.png', total_img)
-            FEA_ROI(np.flip(ROI_ref, axis=0))
-            getApparentElasticModulus()
-            plt.imsave('{}_SRGAN_Quilt.png'.format(ROI_name[roi_index]), ROI_target)
+            # FEA_ROI(np.flip(ROI_ref, axis=0))
+            # getApparentElasticModulus()
+            # getMorphometricIndices(ROI_ref)
+            plt.imsave('{}_{}.png'.format(ROI_name[roi_index], TargetModel), ROI_target)
             FEA_ROI(np.flip(ROI_target, axis=0), saveScript = True)
             getApparentElasticModulus()
+            getMorphometricIndices(ROI_target)
