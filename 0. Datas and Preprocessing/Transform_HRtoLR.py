@@ -6,7 +6,6 @@ import math
 '''해당 Ratio의 FLAG 만들기'''
 for ratio in [8, 10]:
     [NY, NX] = [math.floor(height/ratio), math.floor(width/ratio)]
-
     # 저해상도 Flag 만들기 모두 Tra면 Tra, 하나라도 cortical 있으면 cor, 그게 아니면 0 (없음)
     with open("Bone_FLAG.DAT", 'r') as Bone_Flag_fid:
         A_Flag = np.zeros((height, width))
@@ -25,7 +24,7 @@ for ratio in [8, 10]:
             else:
                 LR_Flag[i, j] = 0
 
-    with open("FLAG/FLAG_r%d.DAT"%ratio, 'w') as Flag_file:
+    with open("FLAG/FLAG_r{}.DAT".format(ratio), 'w') as Flag_file:
         for i in range(NY):
             for j in range(NX):
                 Flag_file.write("%d "%LR_Flag[i, j])

@@ -6,11 +6,9 @@ MPA system
 modulus: MPa
 '''
 import numpy as np
-import math
-import time
-import os
 import miscell as m
 from datetime import datetime
+import math, time, os
 
 def AssignLoad(filename, forces, NX, NY, FH_NODE, GT_NODE, FHC, FHS, GTC, GT_ref_node1, A_Flag):
     [FORCE, THETA] = [forces[0], forces[1]]
