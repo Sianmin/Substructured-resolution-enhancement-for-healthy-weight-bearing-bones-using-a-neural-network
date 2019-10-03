@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 import h5py
 
 [ratio, patch_n, step] = [10, 8, 2]
-[useDis, useSED, showTest] = [False, True,  False]
-Adjpatch_n = 8
+[useDis, useSED, showTest] = [False, False,  True]
+Adjpatch_n = 0
 subject_n = 11
 
 if __name__  == '__main__':
@@ -16,10 +16,10 @@ if __name__  == '__main__':
     index = 0
 
     HR_shape = (patch_n*ratio, patch_n*ratio, 1)
-    data_n = math.ceil(NY/step)*math.ceil(NX/step)*subject_n
+    data_n = math.ceil(NY/step)*math.ceil(NX/step)*5*subject_n #원본, 회전 90도, 180, 270, 원본 flip
     print("Total Data set {}".format(data_n))
 
-    with h5py.File("Dataset_r%d_p%d_adj_SED.hdf5" % (ratio, ratio*patch_n), 'w') as f:
+    with h5py.File("Dataset_r%d_p%d.hdf5" % (ratio, ratio*patch_n), 'w') as f:
         f.create_dataset('LR', (data_n, patch_n+2*Adjpatch_n, patch_n+2*Adjpatch_n, 1), dtype='float')
         f.create_dataset('HR', (data_n, patch_n*ratio, patch_n*ratio, 1) , dtype='float')
         LR_set = f['LR']
@@ -91,6 +91,7 @@ if __name__  == '__main__':
                     LR_patch[Poy:Pdy, Pox:Pdx, :] = LR_DV[Loy:Ldy, Lox:Ldx]
                     HR_patch[HPoy:HPdy, HPox:HPdx, :] = HR_DV[HRoy:HRdy, HRox:HRdx]
 
+                    # 원본
                     LR_set[index, :, :, :] = LR_patch
                     HR_set[index, :, :, :] = HR_patch
                     if useSED:
@@ -100,15 +101,69 @@ if __name__  == '__main__':
                         Dis_patch[Poy:Pdy + 1, Pox:Pdx + 1, :] = Displacement[Loy:Ldy + 1, Lox:Ldx + 1, :]
                         Dis_set[index, :, :, :] = Dis_patch
                     index += 1
-                    if index % 1000 == 0: print("Make {}th set".format(index))
+                    # 90도
+                    LR_set[index, :, :, :] = np.rot90(LR_patch, 1)
+                    HR_set[index, :, :, :] = np.rot90(HR_patch, 1)
+                    if useSED:
+                        SED_patch[Poy:Pdy, Pox:Pdx, :] = SED[Loy:Ldy, Lox:Ldx]
+                        SED_set[index, :, :, :] = np.rot90(SED_patch, 1)
+                    if useDis:
+                        Dis_patch[Poy:Pdy + 1, Pox:Pdx + 1, :] = Displacement[Loy:Ldy + 1, Lox:Ldx + 1, :]
+                        Dis_set[index, :, :, :] = np.rot90(Dis_patch, 1)
+                    index += 1
+                    #180도
+                    LR_set[index, :, :, :] = np.rot90(LR_patch, 2)
+                    HR_set[index, :, :, :] = np.rot90(HR_patch, 2)
+                    if useSED:
+                        SED_patch[Poy:Pdy, Pox:Pdx, :] = SED[Loy:Ldy, Lox:Ldx]
+                        SED_set[index, :, :, :] = np.rot90(SED_patch, 2)
+                    if useDis:
+                        Dis_patch[Poy:Pdy + 1, Pox:Pdx + 1, :] = Displacement[Loy:Ldy + 1, Lox:Ldx + 1, :]
+                        Dis_set[index, :, :, :] = np.rot90(Dis_patch, 2)
+                    index += 1
+                    #270도
+                    LR_set[index, :, :, :] = np.rot90(LR_patch, 3)
+                    HR_set[index, :, :, :] = np.rot90(HR_patch, 3)
+                    if useSED:
+                        SED_patch[Poy:Pdy, Pox:Pdx, :] = SED[Loy:Ldy, Lox:Ldx]
+                        SED_set[index, :, :, :] = np.rot90(SED_patch, 3)
+                    if useDis:
+                        Dis_patch[Poy:Pdy + 1, Pox:Pdx + 1, :] = Displacement[Loy:Ldy + 1, Lox:Ldx + 1, :]
+                        Dis_set[index, :, :, :] = np.rot90(Dis_patch, 3)
+                    index += 1
+                    # flip
+                    LR_set[index, :, :, :] = np.flip(LR_patch)
+                    HR_set[index, :, :, :] = np.flip(HR_patch)
+                    if useSED:
+                        SED_patch[Poy:Pdy, Pox:Pdx, :] = SED[Loy:Ldy, Lox:Ldx]
+                        SED_set[index, :, :, :] = np.flip(SED_patch)
+                    if useDis:
+                        Dis_patch[Poy:Pdy + 1, Pox:Pdx + 1, :] = Displacement[Loy:Ldy + 1, Lox:Ldx + 1, :]
+                        Dis_set[index, :, :, :] = np.flip(Dis_patch)
+                    index += 1
+                    if index % 5000 == 0: print(f"Make {index}th set")
 
-                    if showTest:
-                        plt.gray()
-                        plt.subplot(131)
-                        plt.imshow(LR_patch[:, :, 0], vmin=0, vmax=1, origin='lower')
-                        plt.subplot(132)
-                        plt.imshow(HR_patch[:, :, 0], vmin=0, vmax=1, origin='lower')
-                        plt.subplot(133)
-                        plt.imshow(SED_patch[:, :, 0], origin='lower')
-                        plt.show(block=False)
-                        plt.pause(0.5)
+                    # if showTest:
+                    #     plt.gray()
+                    #     plt.subplot(521)
+                    #     plt.imshow(np.squeeze(LR_set[index-1, :, :, :]), vmin=0, vmax=1, origin='lower')
+                    #     plt.subplot(522)
+                    #     plt.imshow(np.squeeze(HR_set[index-1, :, :, :]) , vmin=0, vmax=1, origin='lower')
+                    #     plt.subplot(523)
+                    #     plt.imshow(np.squeeze(LR_set[index-2, :, :, :]) , vmin=0, vmax=1, origin='lower')
+                    #     plt.subplot(524)
+                    #     plt.imshow(np.squeeze(HR_set[index-2, :, :, :] ), vmin=0, vmax=1, origin='lower')
+                    #     plt.subplot(525)
+                    #     plt.imshow(np.squeeze(LR_set[index-3, :, :, :] ), vmin=0, vmax=1, origin='lower')
+                    #     plt.subplot(526)
+                    #     plt.imshow(np.squeeze(HR_set[index-3, :, :, :] ), vmin=0, vmax=1, origin='lower')
+                    #     plt.subplot(527)
+                    #     plt.imshow(np.squeeze(LR_set[index-4, :, :, :]) , vmin=0, vmax=1, origin='lower')
+                    #     plt.subplot(528)
+                    #     plt.imshow(np.squeeze(HR_set[index-4, :, :, :] ), vmin=0, vmax=1, origin='lower')
+                    #     plt.subplot(529)
+                    #     plt.imshow(np.squeeze(LR_set[index-5, :, :, :] ), vmin=0, vmax=1, origin='lower')
+                    #     plt.subplot(5,2,10)
+                    #     plt.imshow(np.squeeze(HR_set[index-5, :, :, :] ), vmin=0, vmax=1, origin='lower')
+                    #     plt.show(block=False)
+                    #     plt.pause(0.5)

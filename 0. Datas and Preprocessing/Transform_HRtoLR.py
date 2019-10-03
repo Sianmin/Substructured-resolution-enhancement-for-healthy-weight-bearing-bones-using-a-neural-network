@@ -24,7 +24,7 @@ for ratio in [8, 10]:
             else:
                 LR_Flag[i, j] = 0
 
-    with open("FLAG/FLAG_r{}.DAT".format(ratio), 'w') as Flag_file:
+    with open(f"FLAG/FLAG_r{ratio}.DAT", 'w') as Flag_file:
         for i in range(NY):
             for j in range(NX):
                 Flag_file.write("%d "%LR_Flag[i, j])
@@ -36,7 +36,7 @@ for ratio in [1, 8, 10]:
     '''해당 ratio의 Subject별 DV 만들기'''
     for TEST in range (1, 12):
         # HR 불러오기
-        with open("../A. 대퇴골자료\CASE %d\CASE%d_XDEN3_HR.DAT" % (TEST, TEST), 'r') as file:
+        with open(f"../A. 대퇴골자료\CASE {TEST}\CASE{TEST}_XDEN3_HR.DAT", 'r') as file:
             Total = np.zeros((height, width))
             while 1:
                 temp = (file.readline().split())
@@ -52,17 +52,17 @@ for ratio in [1, 8, 10]:
                 LR_DV[i, j] = np.sum(temp)/ (ratio**2)
 
         # 저해상화 LR_DV 저장하기
-        with open("DV/r%d/DV_r%d_s%d.DAT"%(ratio, ratio, TEST), 'w') as file:
+        with open(f"DV/r{ratio}/DV_r{ratio}_s{TEST}.DAT", 'w') as file:
             for i in range(NY):
                 for j in range(NX):
-                    file.write("%f "%LR_DV[i, j])
+                    file.write(f"{LR_DV[i, j]} ")
                 file.write("\n")
 
         # 영상으로도 저장
-        with open("DV/r%d/DV_r%d_s%d.DAT"%(ratio, ratio, TEST), 'r') as file:
+        with open(f"DV/r{ratio}/DV_r{ratio}_s{TEST}.DAT", 'r') as file:
             Total = np.zeros((math.floor(height/ratio), math.floor(width/ratio)))
             for i in range(math.floor(height/ratio)):
                 temp = (file.readline().split())
                 Total[i, :] = temp
         plt.gray()
-        plt.imsave('IMAGE/r%d/IMG_r%d_s%d.png'%(ratio, ratio, TEST), Total, origin='lower')
+        plt.imsave(f"IMAGE/r{ratio}/IMG_r{ratio}_s{TEST}.png", Total, origin='lower')

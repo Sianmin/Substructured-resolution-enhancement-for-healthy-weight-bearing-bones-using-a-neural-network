@@ -2,13 +2,14 @@ from keras.layers import Add, BatchNormalization, Conv2D, Dense, Flatten, Input,
 from keras.models import Model
 from keras.applications import VGG19
 from keras.optimizers import Adam, Nadam
+from keras_radam import RAdam
 from keras import losses
 from keras import backend as K
 import math
 import tensorflow as tf
 
 class Networks:
-    def __init__(self, ratio, patch_n, batch_size, isGAN = False):
+    def __init__(self, ratio, patch_n, batch_size):
         self.ratio, self.patch_n = ratio, patch_n
         self.rp = ratio*patch_n
         self.batch_size = batch_size
@@ -18,9 +19,13 @@ class Networks:
     def Loss_MSE_BVTV(self, y_true, y_pred):
         MSE = K.mean(K.square(y_pred - y_true))
         BV_TV = K.mean(K.square(K.sum(y_pred)-K.sum(y_true)))
-        c = 10
+        c = 1000
         loss = MSE + c * BV_TV
         return loss
+
+    def LOSS_BVTV(self, y_true, y_pred):
+        BV_TV = K.mean(K.square(K.sum(y_pred) - K.sum(y_true)))
+        return BV_TV
 
     def build_vgg19(self):
         vgg = VGG19(include_top=False, input_shape=(self.rp, self.rp, 3))
@@ -28,6 +33,47 @@ class Networks:
         img = Input(shape=((self.rp, self.rp, 3)))
         img_features = vgg(img)
         return Model(img, img_features)
+
+    def AutoEncoder(self):
+        def encoderNet():
+            input = Input((self.rp, self.rp, 1))
+            x = Conv2D(64, kernel_size = 3 , strides=1, padding='same', activation='relu')(input)
+            x = MaxPooling2D((2, 2))(input)
+            x = Conv2D(64*2, kernel_size=3, strides=1, padding='same', activation='relu')(x)
+            x = MaxPooling2D((2, 2))(x)
+            x = Conv2D(64*4, kernel_size=3, strides=1, padding='same', activation='relu')(x)
+            x = MaxPooling2D((2, 2))(x)
+            x = Conv2D(64*8, kernel_size=3, strides=1, padding='same', activation='relu')(x)
+            x = MaxPooling2D((2, 2))(x)
+            output = Conv2D(64*16, kernel_size=3, strides=1, padding='same', activation='relu')(x)
+            return Model(input, output)
+        def decoderNet():
+            input = Input((int(self.rp/16), int(self.rp/16), 64*16))
+            x = UpSampling2D((2, 2))(input)
+            x = Conv2D(64 * 8, kernel_size=3, strides=1, padding='same', activation='relu')(x)
+            x = UpSampling2D((2, 2))(x)
+            x = Conv2D(64 * 4, kernel_size=3, strides=1, padding='same', activation='relu')(x)
+            x = UpSampling2D((2, 2))(x)
+            x = Conv2D(64 * 2, kernel_size=3, strides=1, padding='same', activation='relu')(x)
+            x = UpSampling2D((2, 2))(x)
+            x = Conv2D(64, kernel_size=3, strides=1, padding='same', activation='relu')(x)
+            output = Conv2D(1, kernel_size=3, strides=1, padding='same', activation='sigmoid')(x)
+            return Model(input, output)
+
+        encoder = encoderNet()
+        decoder = decoderNet()
+
+        input = Input((self.rp, self.rp, 1))
+        encodered = encoder(input)
+        decodered = decoder(encodered)
+        autoencoder = Model(input, decodered)
+
+        optimizer = RAdam()
+
+        autoencoder.compile(loss='mse', optimizer = optimizer, metrics=['accuracy'])
+        autoencoder.summary()
+
+        return autoencoder, encoder, decoder
 
     '''SRGAN-1'''
     def Generator_SRGAN_1(self):
@@ -91,12 +137,14 @@ class Networks:
         return discriminator
 
     def SRGAN_1(self):
-        optimizer = Adam(0.0001, 0.5, 0.9)
+        optimizer = RAdam()
 
-        # VGG
-        vgg = self.build_vgg19()
-        vgg.trainable = False
-        vgg.compile(loss='mse', optimizer = optimizer, metrics=['accuracy'])
+        # AutoEncoder
+        autoencoder, encoder, decoder = self.AutoEncoder()
+        autoencoder.load_weights("Models/AUTOENCODER/01-G.hdf5")
+        # autoencoder.outputs = [autoencoder.layers[1].output]
+        encoder.trainable = False
+
         # discriminator
         discriminator = self.Discriminator_SRGAN_1()
         discriminator.compile(optimizer=optimizer,
@@ -108,16 +156,14 @@ class Networks:
         generator = self.Generator_SRGAN_1()
 
         gen_input = Input((self.patch_n, self.patch_n, 1))
-        hr_input = Input((self.rp, self.rp, 1))
 
         fake = generator(gen_input)
-        fake_3c = Concatenate()([fake, fake, fake])
-        fake_feature = vgg(fake_3c)
+        fake_feature = encoder(fake)
         # Combined Model
         validity = discriminator(fake)
-        combined = Model([gen_input, hr_input], [validity, fake_feature])
+        combined = Model([gen_input], [validity, fake_feature, fake])
         combined.compile(optimizer=optimizer,
-                         loss=[self.Loss_MSE_BVTV, 'mse'],
-                               loss_weights=[1e-3, 1])
+                         loss=['binary_crossentropy', 'mse', self.LOSS_BVTV],
+                               loss_weights=[1e-3, 1, 1])
         combined.summary()
-        return vgg, generator, discriminator, combined
+        return encoder, generator, discriminator, combined

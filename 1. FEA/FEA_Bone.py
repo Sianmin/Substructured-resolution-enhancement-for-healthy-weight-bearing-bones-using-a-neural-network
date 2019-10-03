@@ -19,7 +19,7 @@ def AssignLoad(filename, forces, NX, NY, FH_NODE, GT_NODE, FHC, FHS, GTC, GT_ref
     RANGE = math.acos(np.dot(R_VEC, C_VEC))
 
     with open(filename, 'w') as ansys_LOAD:
-        ansys_LOAD.write("NSEL, ALL\n FDELE, ALLL\n") # 이전에 부여한 하중 지우기.
+        ansys_LOAD.write("NSEL, ALL\nFDELE, ALLL\n") # 이전에 부여한 하중 지우기.
         # FH_NODE 하중 부여
         for i in range(len(FH_NODE)):
             node_now = FH_NODE[i, :]
@@ -284,7 +284,7 @@ def FEA_BONE(A_BMD, ratio, getDis = True, getVonStress = False, getSED = False, 
 if __name__ == '__main__':
     # Parameters
     for ratio in [10]:
-        [W, H, NX, NY] = [9.415, 10.400, math.floor(1883/ratio), math.floor(2080/ratio)]
+        [NX, NY] = [math.floor(1883/ratio), math.floor(2080/ratio)]
         os.makedirs("r%d" % (ratio), exist_ok=True)
         for subject in range(1, 12):
             print("Subject {}".format(subject))

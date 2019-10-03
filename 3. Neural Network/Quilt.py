@@ -17,15 +17,15 @@ height, width = 2080, 1883
 isGAN, epoch_show = False, False
 [ratio, patch_n] = [10, 8]
 [epochs, batch_size] = [10, 32]
-OV_width = 4
+OV_width = 2
 
 OV_step, OV_rp = patch_n - OV_width, OV_width * ratio
 NY, NX = math.floor(height/ratio), math.floor(width/ratio)
 rp = ratio * patch_n
 plt.gray()
 
-filepath = "Models/SRGAN_BVTV-09-30-20-34/"
-gpath = filepath + "04-G.hdf5"
+filepath = "Models/SRGAN_BVTV-10-01-14-02/"
+gpath = filepath + "20-G.hdf5"
 [BC_train, BC_test] = [0, 0]
 Networks = Networkclass(ratio, patch_n, batch_size, isGAN)
 GN = Networks.Generator_SRGAN_1()
@@ -130,6 +130,7 @@ if __name__ == "__main__":
     for subject in range(1, 12):
         LR_DV = np.expand_dims(np.expand_dims(Load_LRDV(ratio, subject), axis = 2), axis = 0)
         HR_DV = np.zeros((height, width))
+        cutting = np.zeros((height, width))
 
         # Windowing 해 나간다.
         for winy in range(0, NY, OV_step):
