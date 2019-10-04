@@ -61,7 +61,7 @@ if __name__ == '__main__':
             discriminator.train_on_batch(gen_img, not_valid)
 
             feature = encoder.predict(HR_batch)
-            combined.train_on_batch([LR_batch],[valid, feature, LR_batch]) # discirminator가 valid하고 feature 잘 나오고 BVTV 맞게 학습.
+            combined.train_on_batch(LR_batch,[valid, feature, HR_batch]) # discirminator가 valid하고 feature 잘 나오고 BVTV 맞게 학습.
     #     #Callbacks
             if i % 5000 == 0:
                 LVDR.on_epoch_end_GAN(epoch, generator)

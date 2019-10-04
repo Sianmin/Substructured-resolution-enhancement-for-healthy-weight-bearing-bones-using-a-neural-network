@@ -1,7 +1,6 @@
 import numpy as np
 import math
 import os, sys
-sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))) + "/4. Metrics")
 
 [height, width] = [2080, 1883]
 case_n = 3

@@ -6,7 +6,7 @@ from skimage.measure import compare_ssim as ssim
 from skimage.measure import compare_mse as mse
 from MetricsCommon import rgb2gray, readESB, readNSB
 import WriteTecplot
-sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))) + "/1. FEA")
+# sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))) + "/1. FEA")
 from FEA_Bone import FEA_BONE
 
 if __name__ == '__main__':

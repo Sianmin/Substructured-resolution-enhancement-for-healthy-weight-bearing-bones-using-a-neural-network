@@ -81,12 +81,6 @@ def cut_boundary_dijkstra(Emap, ori, dest):
         elif dir == 2: mx += 1
         elif dir == 3: my -=1
         elif dir == 4: mx -=1
-    # plt.subplot(121)
-    # plt.imshow(Emap, vmin=0, vmax=1, origin='lower')
-    # plt.subplot(122)
-    # plt.imshow(cutMap, origin='lower')
-    # plt.show(block=False)
-    # plt.pause(0.5)
     return cutMap
 def fill_mask(E_mask, Q):
     while Q:
@@ -225,6 +219,5 @@ if __name__ == "__main__":
 
                 else: # Initial
                     HR_DV[:rp, :rp] = HR_patch
-
 
         plt.imsave("%sQuilt_subject%d.png"%(filepath, subject), HR_DV, origin='lower')

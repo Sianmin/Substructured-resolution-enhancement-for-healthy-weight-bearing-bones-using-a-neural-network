@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import math
 
+plt.gray()
 [height, width] = [2080, 1883]
 '''해당 Ratio의 FLAG 만들기'''
 for ratio in [8, 10]:
@@ -59,10 +60,4 @@ for ratio in [1, 8, 10]:
                 file.write("\n")
 
         # 영상으로도 저장
-        with open(f"DV/r{ratio}/DV_r{ratio}_s{TEST}.DAT", 'r') as file:
-            Total = np.zeros((math.floor(height/ratio), math.floor(width/ratio)))
-            for i in range(math.floor(height/ratio)):
-                temp = (file.readline().split())
-                Total[i, :] = temp
-        plt.gray()
-        plt.imsave(f"IMAGE/r{ratio}/IMG_r{ratio}_s{TEST}.png", Total, origin='lower')
+        plt.imsave(f"IMAGE/r{ratio}/IMG_r{ratio}_s{TEST}.png", LR_DV, origin='lower')

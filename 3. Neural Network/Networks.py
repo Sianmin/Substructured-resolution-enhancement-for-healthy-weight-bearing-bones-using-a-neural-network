@@ -19,7 +19,7 @@ class Networks:
     def Loss_MSE_BVTV(self, y_true, y_pred):
         MSE = K.mean(K.square(y_pred - y_true))
         BV_TV = K.mean(K.square(K.sum(y_pred)-K.sum(y_true)))
-        c = 1000
+        c = 2
         loss = MSE + c * BV_TV
         return loss
 
@@ -161,9 +161,9 @@ class Networks:
         fake_feature = encoder(fake)
         # Combined Model
         validity = discriminator(fake)
-        combined = Model([gen_input], [validity, fake_feature, fake])
+        combined = Model(gen_input, [validity, fake_feature, fake])
         combined.compile(optimizer=optimizer,
-                         loss=['binary_crossentropy', 'mse', self.LOSS_BVTV],
+                         loss=['binary_crossentropy', 'mse', 'mse'],
                                loss_weights=[1e-3, 1, 1])
         combined.summary()
         return encoder, generator, discriminator, combined
