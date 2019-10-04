@@ -13,20 +13,20 @@ Substructured Resolution Enhancement for Healthy Weight Bearing Bones using a Ne
 ***
 # Data Structure
 ## 1. LR_set
-* [index, y, x]
+* [index, y, x] LR patch가 8by8로 들어가 있음. (ratio = 10)
 ## 2. HR_set
-* [패치 번호, y, x]: HR patchrk 20by20으로 들어가있음
+* [index, y, x]: HR patch가 80by80으로 들어가있음
 ## 3. Dis_set
-* [패치번호,  y, x, channel]: displacment가 들어가있음 channel 1은 하중 케이스 1의 UX channel 2는 하중 케이스 1의 UY channel 3는 하중 케이스 2의 UX ...
+* [index,  y, x, channel]: displacment가 들어가있음 channel 1은 하중 케이스 1의 UX channel 2는 하중 케이스 1의 UY channel 3는 하중 케이스 2의 UX, 이하 동일
 ***
 # Variables
 ## 1. patch_n
-* The Side Length of LR Patch
+* The side length of LR patch
 ## 2. ratio
 * Upscaling Ratio
 ## 3. rp
-* The Side Lenght of HR Patch (ratio * patch_n)
+* The side lenght of HR patch (ratio * patch_n)
 ## 4. height, width
-* The side lenghts of HR Image (2080, 1883)
+* The side lengths of HR Image (2080, 1883)
 ## 5. resolution
-* resolution of HR imag
+* resolution of HR image
