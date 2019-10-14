@@ -48,7 +48,6 @@ if __name__ == '__main__':
         print(f"Epoch {epoch}/{epochs}")
         num_batches = int(LR_set_train.shape[0] / batch_size)
         for i in range(num_batches):
-            if i % 1000 == 0 : print(f"Batch {i+1}/{num_batches}")
             LR_batch = LR_set_train[i * batch_size:(i + 1)*batch_size]
             HR_batch = HR_set_train[i * batch_size:(i + 1) * batch_size]
 
@@ -57,12 +56,14 @@ if __name__ == '__main__':
             valid = np.ones((batch_size, 1))
             not_valid = np.zeros((batch_size, 1))
 
-            discriminator.train_on_batch(HR_batch, valid)
-            discriminator.train_on_batch(gen_img, not_valid)
+            d_loss_real = discriminator.train_on_batch(HR_batch, valid)
+            d_loss_fake = discriminator.train_on_batch(gen_img, not_valid)
+            d_loss = 0.5*np.add(d_loss_real,d_loss_fake)
 
             feature = encoder.predict(HR_batch)
-            combined.train_on_batch(LR_batch,[valid, feature, HR_batch]) # discirminator가 valid하고 feature 잘 나오고 BVTV 맞게 학습.
-    #     #Callbacks
+            g_loss = combined.train_on_batch(LR_batch,[valid, feature, HR_batch]) # discirminator가 valid하고 feature 잘 나오고 BVTV 맞게 학습.
+            if i % 500 == 0: print(f"Batch {i + 1}/{num_batches}\td_loss: {d_loss:.4f}\tg_loss: {g_loss:.4f}")
+            # Callbacks
             if i % 5000 == 0:
                 LVDR.on_epoch_end_GAN(epoch, generator)
         generator.save_weights(modelpath_g.format(epoch=epoch), True)

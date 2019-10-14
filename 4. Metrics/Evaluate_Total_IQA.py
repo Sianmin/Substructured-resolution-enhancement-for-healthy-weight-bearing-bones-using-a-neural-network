@@ -60,30 +60,13 @@ if __name__ == '__main__':
     LR_img = rgb2gray(plt.imread('../0. Datas and Preprocessing/IMAGE/r%d/IMG_r%d_s%d.png' % (ratio, ratio, subject)))
     ref_img = rgb2gray(plt.imread('../0. Datas and Preprocessing/IMAGE/r1/IMG_r1_s%d.png' % subject))
     print(["원본 BV : ", Get_Boundary_Variation(ref_img, patch_n)])
+    print(np.sum(ref_img))
 
-    # Jungjinnet
-    comp_path = "Completed/JJNet-09-04-13-31/ 5-predict_subject%d.png" % subject
-    comp_img = rgb2gray(plt.imread("../3. Neural Network/Models/" + comp_path))
-    Compare("JJNET", ref_img, comp_img)
-    print(["BV : ", Get_Boundary_Variation(comp_img, patch_n)])
-
-    # SRGAN
-    comp_path = "Completed/SRGAN-09-11-12-47/05-predict_subject%d.png" % subject
-    comp_img = rgb2gray(plt.imread("../3. Neural Network/Models/" + comp_path))
-    Compare("SRGAN", ref_img, comp_img)
-    print(["BV : ", Get_Boundary_Variation(comp_img, patch_n)])
-
-    # Feasibility_GAN
-    comp_path = "Completed/Feasibility/Feasibility%d_f.png" % subject
+    comp_path = "SRGAN_BVTV_AUTOENCODER-10-09-00-05/05-predict_subject1.png"
     comp_img = rgb2gray(plt.imread("../3. Neural Network/Models/" + comp_path))
     Compare("Feasibility", ref_img, comp_img)
     print(["BV : ", Get_Boundary_Variation(comp_img, patch_n)])
-
-    # Feasibility_CNN
-    comp_path = "Completed/Feasibility/CNN_Feasibility%d.png" % subject
-    comp_img = rgb2gray(plt.imread("../3. Neural Network/Models/" + comp_path))
-    Compare("Feasibility", ref_img, comp_img)
-    print(["BV : ", Get_Boundary_Variation(comp_img, patch_n)])
+    print(np.sum(comp_img))
 
     # Nearest
     inter_img = imresize(LR_img, (height, width), 'nearest')/255

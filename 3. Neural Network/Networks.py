@@ -24,39 +24,44 @@ class Networks:
         return loss
 
     def LOSS_BVTV(self, y_true, y_pred):
-        BV_TV = K.mean(K.square(K.sum(y_pred) - K.sum(y_true)))
+        BV_TV = K.square(K.mean(y_pred) - K.mean(y_true))
         return BV_TV
 
-    def build_vgg19(self):
-        vgg = VGG19(include_top=False, input_shape=(self.rp, self.rp, 3))
-        vgg.outputs = [vgg.layers[9].output]
-        img = Input(shape=((self.rp, self.rp, 3)))
-        img_features = vgg(img)
-        return Model(img, img_features)
+    def SubpixelConv2D(self, name, scale = self.ratio):
+        def subpixel_shape(input_shape):
+            dims = [input_shape[0],
+                    None if input_shape[1] is None else input_shape[1] * scale,
+                    None if input_shape[2] is None else input_shape[2] * scale,
+                    int(input_shape[3] / (scale ** 2))]
+            output_shape = tuple(dims)
+            return output_shape
+        def subpixel(x):
+            return tf.depth_to_space(x, scale)
+        return Lambda(subpixel, output_shape=subpixel_shape, name=name)
 
     def AutoEncoder(self):
         def encoderNet():
             input = Input((self.rp, self.rp, 1))
-            x = Conv2D(64, kernel_size = 3 , strides=1, padding='same', activation='relu')(input)
+            x = Conv2D(32, kernel_size = 3 , strides=1, padding='same', activation='relu')(input)
             x = MaxPooling2D((2, 2))(input)
-            x = Conv2D(64*2, kernel_size=3, strides=1, padding='same', activation='relu')(x)
+            x = Conv2D(32*2, kernel_size=3, strides=1, padding='same', activation='relu')(x)
             x = MaxPooling2D((2, 2))(x)
-            x = Conv2D(64*4, kernel_size=3, strides=1, padding='same', activation='relu')(x)
+            x = Conv2D(32*4, kernel_size=3, strides=1, padding='same', activation='relu')(x)
             x = MaxPooling2D((2, 2))(x)
-            x = Conv2D(64*8, kernel_size=3, strides=1, padding='same', activation='relu')(x)
+            x = Conv2D(32*8, kernel_size=3, strides=1, padding='same', activation='relu')(x)
             x = MaxPooling2D((2, 2))(x)
-            output = Conv2D(64*16, kernel_size=3, strides=1, padding='same', activation='relu')(x)
+            output = Conv2D(32*16, kernel_size=3, strides=1, padding='same', activation='relu')(x)
             return Model(input, output)
         def decoderNet():
-            input = Input((int(self.rp/16), int(self.rp/16), 64*16))
+            input = Input((int(self.rp/16), int(self.rp/16), 32*16))
             x = UpSampling2D((2, 2))(input)
-            x = Conv2D(64 * 8, kernel_size=3, strides=1, padding='same', activation='relu')(x)
+            x = Conv2D(32 * 8, kernel_size=3, strides=1, padding='same', activation='relu')(x)
             x = UpSampling2D((2, 2))(x)
-            x = Conv2D(64 * 4, kernel_size=3, strides=1, padding='same', activation='relu')(x)
+            x = Conv2D(32 * 4, kernel_size=3, strides=1, padding='same', activation='relu')(x)
             x = UpSampling2D((2, 2))(x)
-            x = Conv2D(64 * 2, kernel_size=3, strides=1, padding='same', activation='relu')(x)
+            x = Conv2D(32 * 2, kernel_size=3, strides=1, padding='same', activation='relu')(x)
             x = UpSampling2D((2, 2))(x)
-            x = Conv2D(64, kernel_size=3, strides=1, padding='same', activation='relu')(x)
+            x = Conv2D(32, kernel_size=3, strides=1, padding='same', activation='relu')(x)
             output = Conv2D(1, kernel_size=3, strides=1, padding='same', activation='sigmoid')(x)
             return Model(input, output)
 
@@ -75,95 +80,191 @@ class Networks:
 
         return autoencoder, encoder, decoder
 
-    '''SRGAN-1'''
-    def Generator_SRGAN_1(self):
-        def residual_block(layer_input, filters):
-            d = Conv2D(filters, kernel_size=3, strides=1, padding='same', activation='relu')(layer_input)
-            d = BatchNormalization(momentum=0.8)(d)
-            d = Conv2D(filters, kernel_size=3, strides=1, padding='same')(d)
-            d = BatchNormalization(momentum=0.8)(d)
-            d = Concatenate()([d, layer_input])
-            return d
-        def deconv2d(layer_input):
-            u = Conv2D(32, kernel_size=3, strides=1, padding='same', activation='relu')(layer_input)
-            return u
+    '''ESRGAN'''
+
+    def Generator_ESRGAN(self):
+        def dense_block(input):
+            x1 = Conv2D(64, kernel_size=3, strides=1, padding='same')(input)
+            x1 = LeakyReLU(0.2)(x1)
+            x1 = Concatenate()([input, x1])
+
+            x2 = Conv2D(64, kernel_size=3, strides=1, padding='same')(x1)
+            x2 = LeakyReLU(0.2)(x2)
+            x2 = Concatenate()([input, x1, x2])
+
+            x3 = Conv2D(64, kernel_size=3, strides=1, padding='same')(x2)
+            x3 = LeakyReLU(0.2)(x3)
+            x3 = Concatenate()([input, x1, x2, x3])
+
+            x4 = Conv2D(64, kernel_size=3, strides=1, padding='same')(x3)
+            x4 = LeakyReLU(0.2)(x4)
+            x4 = Concatenate()([input, x1, x2, x3, x4])  # 这里跟论文原图有冲突，论文没x3???
+
+            x5 = Conv2D(64, kernel_size=3, strides=1, padding='same')(x4)
+            x5 = Lambda(lambda x: x * 0.2)(x5)
+            x = Add()([x5, input])
+            return x
+
+        def RRDB(input):
+            x = dense_block(input)
+            x = dense_block(x)
+            x = dense_block(x)
+            x = Lambda(lambda x: x * 0.2)(x)
+            out = Add()([x, input])
+            return out
+
+        def upsample(x, number):
+            x = Conv2D(256, kernel_size=3, strides=1, padding='same', name='upSampleConv2d_' + str(number))(x)
+            x = self.SubpixelConv2D('upSampleSubPixel_' + str(number), self.ratio)(x)
+            x = PReLU(shared_axes=[1, 2], name='upSamplePReLU_' + str(number))(x)
+            return x
 
         img_lr = Input((self.patch_n, self.patch_n, 1))
-        img_lr1 = UpSampling2D((self.ratio, self.ratio), interpolation='bilinear')(img_lr)
-        c1 = Conv2D(32, kernel_size=3, strides=1, padding='same', activation='relu')(img_lr1)
 
-        r = residual_block(c1, 32)
-        for _ in range(12 - 1):
-            r = residual_block(r, 32)
+        # Pre-residual
+        x_start = Conv2D(64, kernel_size=3, strides=1, padding='same')(img_lr)
+        x_start = LeakyReLU(0.2)(x_start)
 
-        c2 = Conv2D(32, kernel_size=3, strides=1, padding='same')(r)
-        c2 = BatchNormalization(momentum=0.8)(c2)
-        c2 = Concatenate()([c2, c1])
+        # Residual-in-Residual Dense Block
+        x = RRDB(x_start)
 
-        u1 = deconv2d(c2)
-        u2 = deconv2d(u1)
+        # Post-residual block
+        x = Conv2D(64, kernel_size=3, strides=1, padding='same')(x)
+        x = Lambda(lambda x: x * 0.2)(x)
+        x = Add()([x, x_start])
+        # Upsampling depending on factor
+        x = upsample(x, 1)
+        x = upsample(x, self.ratio)
 
-        gen_hr = Conv2D(1, kernel_size=3, strides=1, padding='same', activation='sigmoid')(u2)
+        x = Conv2D(64, kernel_size=3, strides=1, padding='same')(x)
+        x = LeakyReLU(0.2)(x)
+        hr_output = Conv2D(1, kernel_size=3, strides=1, padding='same', activation='tanh')(x)
 
-        generator = Model(img_lr, gen_hr)
+        generator = Model(img_lr, hr_output)
         generator.summary()
         return generator
 
-    def Discriminator_SRGAN_1(self):
-        def d_block(layer_input, filters, strides=1, bn=True):
-            d = Conv2D(filters, (3, 3), strides=strides, padding='same')(layer_input)
+    def Discriminator_ESRGAN(self):
+        def conv2d_block(input, filters, strides=1, bn=True):
+            d = Conv2D(filters, kernel_size=3, strides=strides, padding='same')(input)
             d = LeakyReLU(alpha=0.2)(d)
             if bn:
                 d = BatchNormalization(momentum=0.8)(d)
             return d
 
         d0 = Input((self.rp, self.rp, 1))
-        d1 = d_block(d0, 16, bn=False)
-        d2 = d_block(d1, 16)
-        d3 = d_block(d2, 16*2)
-        d4 = d_block(d3, 16*2, strides=2)
-        d5 = d_block(d4, 16*4)
-        d6 = d_block(d5, 16*4, strides=2)
-        d7 = d_block(d6, 16*8)
-        d8 = d_block(d7, 16*8, strides=2)
-        d8 = Flatten()(d8)
+        d1 = conv2d_block(d0, 64, bn=False)
+        d2 = conv2d_block(d1, 64, strides=2)
+        d3 = conv2d_block(d2, 64*2)
+        d4 = conv2d_block(d3, 64*2, strides=2)
+        d5 = conv2d_block(d4, 64*4)
+        d6 = conv2d_block(d5, 64*4, strides=2)
+        d7 = conv2d_block(d6, 64*8)
+        d8 = conv2d_block(d7, 64*8, strides=2)
+        x = Dense(64 * 16)(d8)
+        x = LeakyReLU(alpha=0.2)(x)
+        x = Dropout(0.4)(x)
+        x = Dense(1)(x)
 
-        d9 = Dense(16*16)(d8)
-        d10 = LeakyReLU(alpha=0.2)(d9)
-        validity = Dense(1, activation='sigmoid')(d10)
-
-        discriminator = Model(d0, validity)
+        discriminator = Model(d0, x)
         discriminator.summary()
         return discriminator
 
-    def SRGAN_1(self):
-        optimizer = RAdam()
+    def RaGAN_ESRGAN(self):
+        def interpolating(x):
+            u = K.random_uniform((K.shape(x[0])[0],) + (1,) * (K.ndim(x[0]) - 1))
+            return x[0] * u + x[1] * (1 - u)
 
-        # AutoEncoder
+        def comput_loss(x):
+            real, fake = x
+            fake_logit = (fake - K.mean(real))
+            real_logit = (real - K.mean(fake))
+            return [fake_logit, real_logit]
+
+        # Input LR images
+        imgs_hr = Input((self.rp, self.rp, 1))
+        generated_hr = Input((self.rp, self.rp, 1))
+
+        # Create a high resolution image from the low resolution one
+        real_discriminator_logits = self.discriminator(imgs_hr)
+        fake_discriminator_logits = self.discriminator(generated_hr)
+
+        # x_inter = Lambda(interpolating)([imgs_hr, generated_hr])
+        # x_inter_score = self.discriminator(x_inter)
+
+        total_loss = Lambda(comput_loss, name='comput_loss')([real_discriminator_logits, fake_discriminator_logits])
+        # print(len(total_loss),total_loss)
+        # Output tensors to a Model must be the output of a Keras `Layer`
+        fake_logit = Lambda(lambda x: x, name='fake_logit')(total_loss[0])
+        real_logit = Lambda(lambda x: x, name='real_logit')(total_loss[1])
+
+        # grads = K.gradients(x_inter_score, [x_inter])[0]
+        # print(x_inter)
+        # print(x_inter_score)
+        # print(grads)
+        # grad_norms = K.sqrt(K.sum(grads ** 2, list(range(1, K.ndim(grads)))) + 1e-9)
+        dis_loss = K.mean(K.binary_crossentropy(K.zeros_like(fake_logit), fake_logit) +
+                          K.binary_crossentropy(K.ones_like(real_logit), real_logit))
+        # dis_loss = tf.reduce_mean(
+        #     tf.nn.sigmoid_cross_entropy_with_logits(labels=tf.zeros_like(fake_logit), logits=fake_logit) +
+        #     tf.nn.sigmoid_cross_entropy_with_logits(labels=tf.ones_likes(real_logit), logits=real_logit))
+        # dis_loss = K.mean(- (real_logit - fake_logit)) + 10 * K.mean((grad_norms - 1) ** 2)
+
+        model = Model(inputs=[imgs_hr, generated_hr], outputs=[fake_logit, real_logit])
+
+        model.add_loss(dis_loss)
+        model.compile(optimizer=Adam(self.dis_lr))
+
+        model.metrics_names.append('dis_loss')
+        model.metrics_tensors.append(dis_loss)
+        return model
+
+
+    def ESRGAN(self):
         autoencoder, encoder, decoder = self.AutoEncoder()
-        autoencoder.load_weights("Models/AUTOENCODER/01-G.hdf5")
+        autoencoder.load_weights("Models/AUTOENCODER/10-G.hdf5")
+
+        def comput_loss(x):
+            img_hr, generated_hr = x
+
+            # Compute the Perceptual loss
+            gen_feature = encoder(generated_hr)
+            ori_feature = encoder(img_hr)
+            percept_loss = tf.losses.mean_squared_error(gen_feature, ori_feature)
+
+            # Compute the RaGAN loss
+            fake_logit, real_logit = self.RaGAN([img_hr, generated_hr])
+            gen_loss = K.mean(
+                K.binary_crossentropy(K.zeros_like(real_logit), real_logit) +
+                K.binary_crossentropy(K.ones_like(fake_logit), fake_logit))
+
+            # Compute the pixel_loss with L1 loss
+            # pixel_loss = tf.losses.absolute_difference(generated_hr, img_hr)
+            return [percept_loss, gen_loss]
+
+        optimizer = RAdam()
+        # AutoEncoder
+
         # autoencoder.outputs = [autoencoder.layers[1].output]
         encoder.trainable = False
 
         # discriminator
         discriminator = self.Discriminator_SRGAN_1()
-        discriminator.compile(optimizer=optimizer,
-                              loss=['binary_crossentropy'],
-                              metrics=['accuracy'])
+        discriminator.compile(optimizer=optimizer, loss=['binary_crossentropy'],)
         discriminator.trainable = False
         discriminator.summary()
         # Generator
         generator = self.Generator_SRGAN_1()
 
         gen_input = Input((self.patch_n, self.patch_n, 1))
-
         fake = generator(gen_input)
+
         fake_feature = encoder(fake)
         # Combined Model
         validity = discriminator(fake)
         combined = Model(gen_input, [validity, fake_feature, fake])
         combined.compile(optimizer=optimizer,
-                         loss=['binary_crossentropy', 'mse', 'mse'],
+                         loss=['binary_crossentropy', 'mse', self.LOSS_BVTV],
                                loss_weights=[1e-3, 1, 1])
         combined.summary()
         return encoder, generator, discriminator, combined

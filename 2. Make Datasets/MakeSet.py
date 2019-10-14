@@ -19,7 +19,7 @@ if __name__  == '__main__':
     data_n = math.ceil(NY/step)*math.ceil(NX/step)*5*subject_n #원본, 회전 90도, 180, 270, 원본 flip
     print("Total Data set {}".format(data_n))
 
-    with h5py.File("Dataset_r%d_p%d.hdf5" % (ratio, ratio*patch_n), 'w') as f:
+    with h5py.File(f"Dataset_r{ratio}_p{ratio*patch_n}.hdf5", 'w') as f:
         f.create_dataset('LR', (data_n, patch_n+2*Adjpatch_n, patch_n+2*Adjpatch_n, 1), dtype='float')
         f.create_dataset('HR', (data_n, patch_n*ratio, patch_n*ratio, 1) , dtype='float')
         LR_set = f['LR']
@@ -37,15 +37,15 @@ if __name__  == '__main__':
             if useDis: Displacement = np.zeros((NY+1, NX+1, 6))
             if useSED: SED = np.zeros((NY, NX, 3))
 
-            with open("../0. Datas and Preprocessing/DV/r%d/DV_r%d_s%d.DAT" % (ratio, ratio, subject), 'r') as LR_file:
+            with open(f"../0. Datas and Preprocessing/DV/r{ratio}/DV_r{ratio}_s{subject}.DAT", 'r') as LR_file:
                 for i in range(NY):
                     LR_DV[i, :, 0] = list(map(eval,LR_file.readline().split()))
-            with open("../0. Datas and Preprocessing/DV/r1/DV_r1_s%d.DAT" % subject, 'r') as HR_file:
+            with open(f"../0. Datas and Preprocessing/DV/r1/DV_r1_s{subject}.DAT", 'r') as HR_file:
                 for i in range(height):
                     HR_DV[i, :, 0] = list(map(eval,HR_file.readline().split()))
             if useDis:
                 for load_case in range(1,4):
-                    with open("../1. FEA/r%d/s%d/DISPLACEMENT_r%d_s%d_c%d" % (ratio, subject, ratio, subject, load_case), 'r') as dis_file:
+                    with open(f"../1. FEA/r{ratio}/s{subject}/DISPLACEMENT_r{ratio}_s{subject}_c{load_case}", 'r') as dis_file:
                         while 1:
                             lines = dis_file.readline().split()
                             if not lines: break
@@ -54,7 +54,7 @@ if __name__  == '__main__':
                                 Displacement[node_y, node_x, (load_case-1)*2:load_case*2] =[dx, dy]
             if useSED:
                 for load_case in range(1,4):
-                    with open("../1. FEA/r%d/s%d/SED_r%d_s%d_c%d" % (ratio, subject, ratio, subject, load_case), 'r') as dis_file:
+                    with open(f"../1. FEA/r{ratio}/s{subject}/SED_r{ratio}_s{subject}_c{load_case}", 'r') as dis_file:
                         while 1:
                             lines = dis_file.readline().split()
                             if not lines: break

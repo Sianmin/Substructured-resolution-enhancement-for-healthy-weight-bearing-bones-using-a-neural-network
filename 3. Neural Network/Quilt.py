@@ -24,10 +24,10 @@ NY, NX = math.floor(height/ratio), math.floor(width/ratio)
 rp = ratio * patch_n
 plt.gray()
 
-filepath = "Models/SRGAN_BVTV-10-01-14-02/"
-gpath = filepath + "20-G.hdf5"
+filepath = "Models/SRGAN_BVTV_AUTOENCODER-10-09-00-05/"
+gpath = filepath + "05-G.hdf5"
 [BC_train, BC_test] = [0, 0]
-Networks = Networkclass(ratio, patch_n, batch_size, isGAN)
+Networks = Networkclass(ratio, patch_n, batch_size)
 GN = Networks.Generator_SRGAN_1()
 GN.load_weights(gpath)
 
@@ -83,13 +83,14 @@ def cut_boundary_dijkstra(Emap, ori, dest):
         elif dir == 4: mx -=1
     return cutMap
 def fill_mask(E_mask, Q):
+    [ymax, xmax] = E_mask.shape
     while Q:
         [x, y] = Q.pop()
         if x > 0:
             if E_mask[y, x - 1] != 1:
                 E_mask[y, x - 1] = 1
                 Q.append((x - 1, y))
-        if x < rp - 1:
+        if x < xmax - 1:
             if E_mask[y, x + 1] != 1:
                 E_mask[y, x + 1] = 1
                 Q.append((x + 1, y))
@@ -97,7 +98,7 @@ def fill_mask(E_mask, Q):
             if E_mask[y - 1, x] != 1:
                 E_mask[y - 1, x] = 1
                 Q.append((x, y - 1))
-        if y < rp - 1:
+        if y < ymax - 1:
             if E_mask[y + 1, x] != 1:
                 E_mask[y + 1, x] = 1
                 Q.append((x, y + 1))
@@ -220,4 +221,4 @@ if __name__ == "__main__":
                 else: # Initial
                     HR_DV[:rp, :rp] = HR_patch
 
-        plt.imsave("%sQuilt_subject%d.png"%(filepath, subject), HR_DV, origin='lower')
+        plt.imsave(f"{filepath}Quilt_subject{subject}.png", HR_DV, origin='lower')

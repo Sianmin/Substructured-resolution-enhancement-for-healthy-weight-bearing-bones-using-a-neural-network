@@ -102,7 +102,6 @@ class LiveDrawing(keras.callbacks.Callback):
         showProg = False
         if showProg:
             a = 1
-
         num1 = int(random.random() * self.LR_set_train.shape[0])
         num2 = int(random.random() * self.LR_set_test.shape[0])
         num3 = int(random.random() * self.LR_set_test.shape[0])
@@ -149,13 +148,15 @@ class LiveDrawing(keras.callbacks.Callback):
             for winx in range(0, NX, patch_n):
                 i = NY - patch_n if winy > NY - patch_n else winy
                 j = NX - patch_n if winx > NX - patch_n else winx
-                # 주변 부 모두 trabecualr면 해당 patch predict하고 아니면 그냥 넣기
+
                 HR_DV[i*ratio:(i+1)*ratio, j*ratio:(j+1)*ratio, 0] = LR_DV[i, j]
                 LR_patch[0, :, :, 0] = LR_DV[i:i+patch_n, j:j+patch_n]
+
                 if self.useDis:
                     Dis_patch[0, :, :, :] = Displacement[i:i+patch_n+1,j:j+patch_n+1]
                     predict_patch = model.predict([LR_patch, Dis_patch])
                 else: predict_patch = model.predict(LR_patch)
+
                 predict_patch = np.reshape(predict_patch, (1, rp, rp))
                 HR_DV[i * ratio: i*ratio + rp, j * ratio: j*ratio +rp, 0] = predict_patch
         return HR_DV

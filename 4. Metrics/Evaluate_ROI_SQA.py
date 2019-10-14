@@ -147,15 +147,16 @@ def getApparentElasticModulus():
 def getMorphometricIndices(ROI):
     # BVTV
     print("{}%".format(np.sum(ROI)/(side_length**2)*100))
+
 if __name__ == '__main__':
-    epoch = 2
+    epoch = 5
     # 이미지 불러오기
     plt.gray()
     for subject in range(1, 2):
-        TargetModel = "SRGAN_BVTV-10-01-14-02"
+        TargetModel = "SRGAN_BVTV_AUTOENCODER-10-09-00-05"
         TargetPath = "../3. Neural Network/Models/Completed/{}/{:02d}-predict_subject{}.png".format(TargetModel, epoch, subject)
-        TargetPath = "../3. Neural Network/Models/Completed/{}/Quilt_subject{}.png".format(TargetModel, subject)
-        TargetPath = "../3. Neural Network/Models/{}/Quilt_subject{}.png".format(TargetModel, subject)
+        # TargetPath = "../3. Neural Network/Models/Completed/{}/Quilt_subject{}.png".format(TargetModel, subject)
+        # TargetPath = "../3. Neural Network/Models/{}/Quilt_subject{}.png".format(TargetModel, subject)
         ref_img = rgb2gray(plt.imread('../0. Datas and Preprocessing/IMAGE/r1/IMG_r1_s{}.png'.format(subject)))
         target_img = rgb2gray(plt.imread(TargetPath))
         total_img = (plt.imread('../0. Datas and Preprocessing/IMAGE/r1/IMG_r1_s{}.png'.format(subject)))
