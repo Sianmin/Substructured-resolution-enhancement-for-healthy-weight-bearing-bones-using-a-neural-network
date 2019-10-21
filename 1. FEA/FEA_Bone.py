@@ -6,15 +6,17 @@ MPA system
 modulus: MPa
 '''
 import numpy as np
-import miscell as m
 from datetime import datetime
 import math, time, os
+
+def unit_vec(vector):
+    return vector / (vector**2).sum()**0.5
 
 def AssignLoad(filename, forces, NX, NY, FH_NODE, GT_NODE, FHC, FHS, GTC, GT_ref_node1, A_Flag):
     [FORCE, THETA] = [forces[0], forces[1]]
     [FX, FY] = [FORCE*math.sin(-np.radians(THETA)), -FORCE*math.cos(np.radians(THETA))]
     force_node = []
-    R_VEC = m.unit_vec(FHC - FHS)
+    R_VEC = unit_vec(FHC - FHS)
     C_VEC = [-math.sin(np.radians(THETA)), -math.cos(np.radians(THETA))]  # 합력 방향
     RANGE = math.acos(np.dot(R_VEC, C_VEC))
 
@@ -23,7 +25,7 @@ def AssignLoad(filename, forces, NX, NY, FH_NODE, GT_NODE, FHC, FHS, GTC, GT_ref
         # FH_NODE 하중 부여
         for i in range(len(FH_NODE)):
             node_now = FH_NODE[i, :]
-            U_VEC = m.unit_vec(FHC - node_now)
+            U_VEC = unit_vec(FHC - node_now)
             U_THETA = math.acos(np.dot(U_VEC, C_VEC))
             if abs(U_THETA) <= abs(RANGE):
                 FN = FORCE * math.cos(np.radians(90 / RANGE * U_THETA))
@@ -45,12 +47,12 @@ def AssignLoad(filename, forces, NX, NY, FH_NODE, GT_NODE, FHC, FHS, GTC, GT_ref
         # Greater Trochanter
         [FORCE, THETA] = [forces[2], forces[3]]
         [FX, FY] = [FORCE * math.sin(np.radians(THETA)), FORCE * math.cos(np.radians(THETA))]
-        R_VEC = m.unit_vec(GTC - GT_ref_node1)
+        R_VEC = unit_vec(GTC - GT_ref_node1)
         C_VEC = [math.sin(np.radians(THETA)), math.cos(np.radians(THETA))]  # 합력 방향
         force_node = []
         for i in range(len(GT_NODE)):
             node_now = GT_NODE[i, :]
-            U_VEC = m.unit_vec(GTC - node_now)
+            U_VEC = unit_vec(GTC - node_now)
             FN = FORCE * np.dot(U_VEC, np.array([0, 1]))
             force_node.append([node_now[0], node_now[1], FN*C_VEC[0], FN*C_VEC[1]])
         force_node = np.asarray(force_node)
@@ -174,28 +176,30 @@ def FEA_BONE(A_BMD, ratio, getDis = True, getVonStress = False, getSED = False, 
     with open("ANSYS_MAT", 'w') as ansys_MAT:
         for i in range(NY):
             for j in range(NX):
-                if ratio > 0:  # Continuum material property
-                    if A_BMD[i, j] > 0.84:
-                        ele = i * NX + j + 1
-                        ansys_MAT.write(
-                            "MP, EX, %d, %f\nMP, PRXY, %d, 0.3\n" % (ele, E0 * 0.1908 * (2 * A_BMD[i, j]) ** 2.39, ele))
-                    elif A_BMD[i, j] >= 0:
-                        ele = i * NX + j + 1
-                        ansys_MAT.write(
-                            "MP, EX, %d, %f\nMP, PRXY, %d, 0.3\n" % (ele, E0 * 0.3044 * (2 * A_BMD[i, j]) ** 1.49 + 0.1, ele))
-                else:
-                    if A_Flag[i, j] == 1:
-                        ele = i * NX + j + 1
-                        ansys_MAT.write(
-                            "MP, EX, %d, %f\nMP, PRXY, %d, 0.3\n" % (ele, CORTICAL_E, ele))
-                    elif A_Flag[i, j] == 2:
-                        ele = i * NX + j + 1
-                        if A_BMD[i, j] >= TH:
-                            ansys_MAT.write(
-                                "MP, EX, %d, %f\nMP, PRXY, %d, 0.3\n" % (ele, TRABECULAR_E * (A_BMD[i, j] ** 3), ele))
-                        else:
-                            ansys_MAT.write(
-                                "MP, EX, %d, %f\nMP, PRXY, %d, 0.3\n" % (ele, TRABECULAR_E * A_BMD[i, j] / 100+10, ele))
+                ele = i * NX + j + 1
+                ansys_MAT.write(f"MP, EX, {ele}, {E0*(A_BMD[i, j]**3) + 0.001*E0} \nMP, PRXY, {ele}, 0.3\n") # for topology optimization
+                # if ratio > 0:  # Continuum material property
+                #     if A_BMD[i, j] > 0.84:
+                #         ele = i * NX + j + 1
+                #         ansys_MAT.write(
+                #             "MP, EX, %d, %f\nMP, PRXY, %d, 0.3\n" % (ele, E0 * 0.1908 * (2 * A_BMD[i, j]) ** 2.39, ele))
+                #     elif A_BMD[i, j] >= 0:
+                #         ele = i * NX + j + 1
+                #         ansys_MAT.write(
+                #             "MP, EX, %d, %f\nMP, PRXY, %d, 0.3\n" % (ele, E0 * 0.3044 * (2 * A_BMD[i, j]) ** 1.49 + 0.1, ele))
+                # else:
+                #     if A_Flag[i, j] == 1:
+                #         ele = i * NX + j + 1
+                #         ansys_MAT.write(
+                #             "MP, EX, %d, %f\nMP, PRXY, %d, 0.3\n" % (ele, CORTICAL_E, ele))
+                #     elif A_Flag[i, j] == 2:
+                #         ele = i * NX + j + 1
+                #         if A_BMD[i, j] >= TH:
+                #             ansys_MAT.write(
+                #                 "MP, EX, %d, %f\nMP, PRXY, %d, 0.3\n" % (ele, TRABECULAR_E * (A_BMD[i, j] ** 3), ele))
+                #         else:
+                #             ansys_MAT.write(
+                #                 "MP, EX, %d, %f\nMP, PRXY, %d, 0.3\n" % (ele, TRABECULAR_E * A_BMD[i, j] / 100+10, ele))
 
     # Node 생성
     with open("ANSYS_NODE", 'w') as ansys_NODE:
@@ -302,5 +306,4 @@ if __name__ == '__main__':
             for load_case in range(1,4):
                 shutil.move("Displacement%d"%load_case, "r%d/s%d/Displacement_r%d_s%d_c%d"%(ratio, subject, ratio, subject, load_case))
                 shutil.move("SED%d" % load_case,"r%d/s%d/SED_r%d_s%d_c%d" % (ratio, subject, ratio, subject, load_case))
-
 

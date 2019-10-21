@@ -16,11 +16,11 @@ def rgb2gray(rgb):
 def LoadingDatasets(ratio, patch_n, train_ratio, useDis = False, useSED = False):
     rp = ratio*patch_n
     # Data 불러오기 전처리
-    filename = f"../2. Make Datasets/Dataset_r{ratio}_p{rp}.hdf5"
+    filename = f"../2. Make Datasets/Dataset_r{ratio}_p{rp}_simple.hdf5"
     LR_set = HDF5Matrix(filename, 'LR')[:]
     HR_set = HDF5Matrix(filename, 'HR')[:]
 
-    datanum = int(np.shape(LR_set)[0])
+    datanum = LR_set.shape[0]
     trainnum = int(datanum * train_ratio)
     testnum = int(datanum * (1-train_ratio))
     print(f"Total: {datanum}\tTrain: {trainnum}\tTest: {testnum}")

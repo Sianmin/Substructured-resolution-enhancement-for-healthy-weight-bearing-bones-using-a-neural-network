@@ -17,28 +17,28 @@ if __name__ == '__main__':
     K.set_session(tf.Session(config=config))
 
     # Parameters
-    useDis, useSED, epoch_show = False, False, False
+    useDis, useSED, epoch_show = True, False, False
     [ratio, patch_n] = [10, 8]
     [epochs, batch_size, train_ratio] = [20, 16, 10/11]
-    modelname = "SRGAN_BVTV_AUTOENCODER"
+    modelname = "SRGAN_BVTV_Displacements_CNN"
 
     # Settings
     rp = ratio*patch_n
     now = time.localtime()
     filepath = f"Models/{modelname}-{now.tm_mon:02d}-{now.tm_mday:02d}-{now.tm_hour:02d}-{now.tm_min:02d}/"
     os.makedirs(filepath, exist_ok=True)
-    LR_set_train, LR_set_test, HR_set_train, HR_set_test, BC_train, BC_test, SED_train, SED_test = LoadingDatasets(ratio, patch_n, train_ratio, useDis, useSED)
+    LR_set_train, LR_set_test, HR_set_train, HR_set_test, Dis_train, Dis_test, SED_train, SED_test = LoadingDatasets(ratio, patch_n, train_ratio, useDis, useSED)
     print("Complete data load")
     modelpath = filepath + "{filepath}{epoch:02d}-{val_loss:.4f}.hdf5"
     modelpath_g = filepath + "{epoch:02d}-G.hdf5"
     modelpath_d = filepath + "{epoch:02d}-D.hdf5"
     modelpath_q = filepath + "{epoch:02d}-Q.hdf5"
-    LVDR = LiveDrawing(filepath, LR_set_train, HR_set_train, LR_set_test, HR_set_test, BC_train, BC_test, SED_train, SED_test, ratio, patch_n, epoch_show=epoch_show, useDis=useDis, useSED=useSED)
+    LVDR = LiveDrawing(filepath, LR_set_train, HR_set_train, LR_set_test, HR_set_test, Dis_train, Dis_test, SED_train, SED_test, ratio, patch_n, epoch_show=epoch_show, useDis=useDis, useSED=useSED)
 
     TIME_START = datetime.now()
     # Loading Networks
-    Networks = Networkclass(ratio, patch_n, batch_size)
-    encoder, generator, discriminator, combined = Networks.SRGAN_1()
+    Networks = Networkclass(ratio, patch_n)
+    generator, discriminator, combined = Networks.SRGAN()
     plot_model(generator, to_file=f'{filepath}generator.png', show_shapes = True)
     plot_model(discriminator, to_file=f'{filepath}discriminator.png', show_shapes = True)
     plot_model(combined, to_file=f'{filepath}combined.png', show_shapes = True)
@@ -50,7 +50,7 @@ if __name__ == '__main__':
         for i in range(num_batches):
             LR_batch = LR_set_train[i * batch_size:(i + 1)*batch_size]
             HR_batch = HR_set_train[i * batch_size:(i + 1) * batch_size]
-
+            Dis_batch = Dis_train[i * batch_size:(i + 1) * batch_size, :]
             gen_img = generator.predict(LR_batch)
 
             valid = np.ones((batch_size, 1))
@@ -60,9 +60,9 @@ if __name__ == '__main__':
             d_loss_fake = discriminator.train_on_batch(gen_img, not_valid)
             d_loss = 0.5*np.add(d_loss_real,d_loss_fake)
 
-            feature = encoder.predict(HR_batch)
-            g_loss = combined.train_on_batch(LR_batch,[valid, feature, HR_batch]) # discirminator가 valid하고 feature 잘 나오고 BVTV 맞게 학습.
-            if i % 500 == 0: print(f"Batch {i + 1}/{num_batches}\td_loss: {d_loss:.4f}\tg_loss: {g_loss:.4f}")
+            # feature = encoder.predict(HR_batch)
+            g_loss = combined.train_on_batch([LR_batch, Dis_batch],[valid, HR_batch, HR_batch]) # discirminator가 valid하고 feature 잘 나오고 BVTV 맞게 학습.
+            if i % 500 == 0: print(f"Batch {i + 1}/{num_batches}\td_loss: {d_loss}\tg_loss: {g_loss}")
             # Callbacks
             if i % 5000 == 0:
                 LVDR.on_epoch_end_GAN(epoch, generator)

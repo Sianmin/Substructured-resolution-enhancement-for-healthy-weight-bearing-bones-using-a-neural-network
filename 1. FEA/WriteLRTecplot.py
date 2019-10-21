@@ -4,6 +4,7 @@ import os, sys
 
 [height, width] = [2080, 1883]
 case_n = 3
+ratio = 10
 
 def Load_Flag(ratio):
     with open("../0. Datas and Preprocessing/FLAG/FLAG_r%d.DAT" % ratio, 'r') as Flag_file:
@@ -27,7 +28,7 @@ def WriteTecplotFiles(ratio, subject, onlyTra = False):
                 Dis_ref[elem_y, elem_x, :, load_case-1] = [dx, dy]
                 Dis_Flag[elem_y, elem_x] = 1
 
-    step = int(NX/10)
+    step = int(NX/3)
 
     for load_case in range(1, case_n+1):
         with open("r%d/s%d/Displacement_r%d_s%d_c%d_Plot.PLT" % (ratio, subject, ratio, subject, load_case), 'w') as fid:
@@ -67,6 +68,5 @@ def WriteTecplotFiles(ratio, subject, onlyTra = False):
                 fid.write("%d %d %d %d\n" % (i*4+1,i*4+2,i*4+3,i*4+4))
 
 if __name__ == '__main__':
-    ratio = 10
     for subject in range(1, 12):
         WriteTecplotFiles(ratio, subject)

@@ -17,7 +17,7 @@ height, width = 2080, 1883
 isGAN, epoch_show = False, False
 [ratio, patch_n] = [10, 8]
 [epochs, batch_size] = [10, 32]
-OV_width = 2
+OV_width = 1
 
 OV_step, OV_rp = patch_n - OV_width, OV_width * ratio
 NY, NX = math.floor(height/ratio), math.floor(width/ratio)
