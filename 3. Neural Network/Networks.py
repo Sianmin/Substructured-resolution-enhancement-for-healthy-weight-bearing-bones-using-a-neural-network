@@ -28,9 +28,9 @@ class Networks:
         return Model(img, img_features)
 
     def VariationalAutoEncoder(self):
-        filter = 64
-        latent_dim = 16
-        intermediate_dim = 10
+        filter = 32
+        latent_dim = 32
+        kernel_size = 3
         # 6400 -> 16
         def sampling(args):
             z_mean, z_log_var = args
@@ -38,16 +38,11 @@ class Networks:
             epsilon = K.random_normal(shape=(batch, dim), mean=0., stddev=1)
             return z_mean + K.exp(0.5 * z_log_var) * epsilon
         input_e = Input((self.rp, self.rp, 1))
-        x = Conv2D(filter, kernel_size = 3 , strides=1, padding='same', activation='relu')(input_e)
-        x = Conv2D(filter, kernel_size=3, strides=1, padding='same', activation='relu')(x)
-        x = MaxPooling2D((2, 2))(x)
-        x = Conv2D(filter*2, kernel_size=3, strides=1, padding='same', activation='relu')(x)
-        x = Conv2D(filter * 2, kernel_size=3, strides=1, padding='same', activation='relu')(x)
-        x = MaxPooling2D((2, 2))(x)
-        x = Conv2D(filter*4, kernel_size=3, strides=1, padding='same', activation='relu')(x)
-        x = Conv2D(filter * 4, kernel_size=3, strides=1, padding='same', activation='relu')(x)
-        x = MaxPooling2D((2, 2))(x)
-        x = Conv2D(filter*8, kernel_size=3, strides=1, padding='same', activation='relu')(x)
+        x = input_e
+        for i in range(3):
+            filter *= 2
+            x = Conv2D(filters=filter,  kernel_size=kernel_size,  activation='relu',  strides=2,  padding='same')(x)
+        shape = K.int_shape(x)
         x = Flatten()(x)
         z_mean = Dense(latent_dim)(x)
         z_log_var = Dense(latent_dim)(x)
@@ -55,19 +50,13 @@ class Networks:
         encoder =  Model(input_e, [z_mean, z_log_var, z])
 
         input_d = Input((latent_dim,), name='z_sampling')
-        x = Dense(intermediate_dim**2, activation='relu')(input_d)
-        x = Reshape((intermediate_dim, intermediate_dim, 1))(x)
-        x = Conv2D(filter*8, kernel_size = 3 , strides=1, padding='same', activation='relu')(x)
-        x = Conv2D(filter*8, kernel_size=3, strides=1, padding='same', activation='relu')(x)
-        x = UpSampling2D((2, 2))(x)
-        x = Conv2D(filter *4,  kernel_size=3, strides=1, padding='same', activation='relu')(x)
-        x = Conv2D(filter *4, kernel_size=3, strides=1, padding='same', activation='relu')(x)
-        x = UpSampling2D((2, 2))(x)
-        x = Conv2D(filter * 2, kernel_size=3, strides=1, padding='same', activation='relu')(x)
-        x = Conv2D(filter *2, kernel_size=3, strides=1, padding='same', activation='relu')(x)
-        x = UpSampling2D((2, 2))(x)
-        x = Conv2D(filter, kernel_size=3, strides=1, padding='same', activation='relu')(x)
-        output_d = Conv2D(1, kernel_size=3, strides=1, padding='same', activation='sigmoid')(x)
+        x = Dense(shape[1] * shape[2] * shape[3], activation='relu')(input_d)
+        x = Reshape((shape[1] , shape[2] , shape[3]))(x)
+        for i in range(3):
+            x = Conv2DTranspose(filters=filter, kernel_size=kernel_size, activation='relu', strides=2, padding='same')(x)
+            filter //= 2
+
+        output_d = Conv2DTranspose(filters=1, kernel_size=kernel_size, activation='sigmoid', padding='same')(x)
         decoder= Model(input_d, output_d)
 
         output = decoder(encoder(input_e)[2])
@@ -84,26 +73,31 @@ class Networks:
         vae.summary()
 
         return vae, encoder, decoder
+
     def AutoEncoder(self):
-        filter = 8
         def encoderNet():
             input = Input((self.rp, self.rp, 1))
-            x = Conv2D(filter, kernel_size = 3 , strides=1, padding='same', activation='relu')(input)
+            x = Conv2D(64, kernel_size=3, strides=1, padding='same', activation='relu')(input)
             x = MaxPooling2D((2, 2))(input)
-            x = Conv2D(filter*2, kernel_size=3, strides=1, padding='same', activation='relu')(x)
+            x = Conv2D(64 * 2, kernel_size=3, strides=1, padding='same', activation='relu')(x)
             x = MaxPooling2D((2, 2))(x)
-            x = Conv2D(filter*4, kernel_size=3, strides=1, padding='same', activation='relu')(x)
+            x = Conv2D(64 * 4, kernel_size=3, strides=1, padding='same', activation='relu')(x)
             x = MaxPooling2D((2, 2))(x)
-            output = Conv2D(filter*8, kernel_size=3, strides=1, padding='same', activation='relu')(x)
+            x = Conv2D(64 * 8, kernel_size=3, strides=1, padding='same', activation='relu')(x)
+            x = MaxPooling2D((2, 2))(x)
+            output = Conv2D(64 * 16, kernel_size=3, strides=1, padding='same', activation='relu')(x)
             return Model(input, output)
+
         def decoderNet():
-            input = Input((int(self.rp/8), int(self.rp/8), filter*8))
+            input = Input((int(self.rp / 16), int(self.rp / 16), 64 * 16))
             x = UpSampling2D((2, 2))(input)
-            x = Conv2D(filter * 4, kernel_size=3, strides=1, padding='same', activation='relu')(x)
+            x = Conv2D(64 * 8, kernel_size=3, strides=1, padding='same', activation='relu')(x)
             x = UpSampling2D((2, 2))(x)
-            x = Conv2D(filter * 2, kernel_size=3, strides=1, padding='same', activation='relu')(x)
+            x = Conv2D(64 * 4, kernel_size=3, strides=1, padding='same', activation='relu')(x)
             x = UpSampling2D((2, 2))(x)
-            x = Conv2D(filter, kernel_size=3, strides=1, padding='same', activation='relu')(x)
+            x = Conv2D(64 * 2, kernel_size=3, strides=1, padding='same', activation='relu')(x)
+            x = UpSampling2D((2, 2))(x)
+            x = Conv2D(64, kernel_size=3, strides=1, padding='same', activation='relu')(x)
             output = Conv2D(1, kernel_size=3, strides=1, padding='same', activation='sigmoid')(x)
             return Model(input, output)
 
@@ -117,46 +111,48 @@ class Networks:
 
         optimizer = RAdam()
 
-        autoencoder.compile(loss='mse', optimizer = optimizer, metrics=['accuracy'])
+        autoencoder.compile(loss='mse', optimizer=optimizer, metrics=['accuracy'])
         autoencoder.summary()
 
         return autoencoder, encoder, decoder
 
     '''SRGAN-1'''
 
-    def Generator(self):
-        filter = 128
-        dis_lr = Input((self.patch_n + 1, self.patch_n + 1, 6))
-        d1 = Conv2D(filter, kernel_size=2, strides=1, activation='relu')(dis_lr)
-        d2 = MaxPooling2D((2,2))(d1)
-        d2 = Conv2D(filter*2, kernel_size=3, strides=1, activation='relu', padding='same')(d2)
-        d2 = MaxPooling2D((2, 2))(d1)
-        d2 = Conv2D(filter*4, kernel_size=3, strides=1, activation='relu', padding='same')(d2)
+    def Generator_SRGAN_1(self):
+        def residual_block(layer_input, filters):
+            d = Conv2D(filters, kernel_size=3, strides=1, padding='same', activation='relu')(layer_input)
+            d = BatchNormalization(momentum=0.8)(d)
+            d = Conv2D(filters, kernel_size=3, strides=1, padding='same')(d)
+            d = BatchNormalization(momentum=0.8)(d)
+            d = Concatenate()([d, layer_input])
+            return d
+
+        def deconv2d(layer_input):
+            u = Conv2D(32, kernel_size=3, strides=1, padding='same', activation='relu')(layer_input)
+            return u
 
         img_lr = Input((self.patch_n, self.patch_n, 1))
-        l1 = Conv2D(filter, kernel_size=3, strides=1, padding='same', activation='relu')(img_lr)
-        l1 = Conv2D(filter, kernel_size=3, strides=1, padding='same', activation='relu')(l1)
-        l2 = MaxPooling2D((2,2))(l1)
-        l2 = Conv2D(filter*2, kernel_size=3, strides=1, padding='same', activation='relu')(l2)
-        l2 = Conv2D(filter * 2, kernel_size=3, strides=1, padding='same', activation='relu')(l2)
-        l3 = MaxPooling2D((2, 2))(l2)
-        l3 = Conv2D(filter * 4, kernel_size=3, strides=1, padding='same', activation='relu')(l3)
-        l3 = Conv2D(filter * 4, kernel_size=3, strides=1, padding='same', activation='relu')(l3)
+        img_lr1 = UpSampling2D((self.ratio, self.ratio), interpolation='bilinear')(img_lr)
+        c1 = Conv2D(32, kernel_size=3, strides=1, padding='same', activation='relu')(img_lr1)
 
-        x = Concatenate()([d2, l3])
-        x = Conv2DTranspose(filter * 4, kernel_size=3, strides=2, padding='same', activation='relu')(x)
-        x = Concatenate()([x, l2])
-        x = Conv2D(filter * 2, kernel_size=3, strides=1, padding='same', activation='relu')(x)
-        x = Conv2DTranspose(filter * 4, kernel_size=3, strides=2, padding='same', activation='relu')(x)
-        x = Concatenate()([x, l1])
-        x = Conv2D(filter * 2, kernel_size=3, strides=1, padding='same', activation='relu')(x)
-        gen_hr = Conv2D(1, kernel_size=3, strides=1, padding='same', activation='sigmoid')(x)
+        r = residual_block(c1, 32)
+        for _ in range(12 - 1):
+            r = residual_block(r, 32)
 
-        generator = Model([img_lr, dis_lr], gen_hr)
+        c2 = Conv2D(32, kernel_size=3, strides=1, padding='same')(r)
+        c2 = BatchNormalization(momentum=0.8)(c2)
+        c2 = Concatenate()([c2, c1])
+
+        u1 = deconv2d(c2)
+        u2 = deconv2d(u1)
+
+        gen_hr = Conv2D(1, kernel_size=3, strides=1, padding='same', activation='sigmoid')(u2)
+
+        generator = Model(img_lr, gen_hr)
         generator.summary()
         return generator
 
-    def Discriminator(self):
+    def Discriminator_SRGAN_1(self):
         def d_block(layer_input, filters, strides=1, bn=True):
             d = Conv2D(filters, (3, 3), strides=strides, padding='same')(layer_input)
             d = LeakyReLU(alpha=0.2)(d)
@@ -165,17 +161,17 @@ class Networks:
             return d
 
         d0 = Input((self.rp, self.rp, 1))
-        d1 = d_block(d0, 8, bn=False)
-        d2 = d_block(d1, 8)
-        d3 = d_block(d2, 8 * 2)
-        d4 = d_block(d3, 8 * 2, strides=2)
-        d5 = d_block(d4, 8 * 4)
-        d6 = d_block(d5, 8 * 4, strides=2)
-        d7 = d_block(d6, 8 * 8)
-        d8 = d_block(d7, 8 * 8, strides=2)
+        d1 = d_block(d0, 16, bn=False)
+        d2 = d_block(d1, 16)
+        d3 = d_block(d2, 16 * 2)
+        d4 = d_block(d3, 16 * 2, strides=2)
+        d5 = d_block(d4, 16 * 4)
+        d6 = d_block(d5, 16 * 4, strides=2)
+        d7 = d_block(d6, 16 * 8)
+        d8 = d_block(d7, 16 * 8, strides=2)
         d8 = Flatten()(d8)
 
-        d9 = Dense(4*4)(d8)
+        d9 = Dense(16 * 16)(d8)
         d10 = LeakyReLU(alpha=0.2)(d9)
         validity = Dense(1, activation='sigmoid')(d10)
 
@@ -183,34 +179,34 @@ class Networks:
         discriminator.summary()
         return discriminator
 
-    def SRGAN(self):
+    def SRGAN_1(self):
         optimizer = RAdam()
 
         # AutoEncoder
-        # autoencoder, encoder, decoder = self.AutoEncoder()
-        # autoencoder.load_weights("Models/AUTOENCODER/01-G.hdf5")
+        autoencoder, encoder, decoder = self.AutoEncoder()
+        autoencoder.load_weights("Models/AUTOENCODER/01-G.hdf5")
         # autoencoder.outputs = [autoencoder.layers[1].output]
-        # encoder.trainable = False
+        encoder.trainable = False
 
         # discriminator
-        discriminator = self.Discriminator()
+        discriminator = self.Discriminator_SRGAN_1()
         discriminator.compile(optimizer=optimizer,
                               loss=['binary_crossentropy'],
                               metrics=['accuracy'])
         discriminator.trainable = False
         discriminator.summary()
         # Generator
-        generator = self.Generator()
+        generator = self.Generator_SRGAN_1()
 
         gen_input = Input((self.patch_n, self.patch_n, 1))
-        dis_input = Input((self.patch_n+1, self.patch_n+1, 6))
 
         fake = generator(gen_input)
+        fake_feature = encoder(fake)
         # Combined Model
         validity = discriminator(fake)
-        combined = Model([gen_input, dis_input], [validity, fake, fake])
+        combined = Model([gen_input], [validity, fake_feature, fake])
         combined.compile(optimizer=optimizer,
                          loss=['binary_crossentropy', 'mse', self.LOSS_BVTV],
                          loss_weights=[1e-3, 1, 1])
         combined.summary()
-        return generator, discriminator, combined
+        return encoder, generator, discriminator, combined

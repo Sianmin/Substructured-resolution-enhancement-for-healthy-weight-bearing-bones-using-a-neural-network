@@ -17,17 +17,17 @@ height, width = 2080, 1883
 isGAN, epoch_show = False, False
 [ratio, patch_n] = [10, 8]
 [epochs, batch_size] = [10, 32]
-OV_width = 1
+OV_width = 2
 
 OV_step, OV_rp = patch_n - OV_width, OV_width * ratio
 NY, NX = math.floor(height/ratio), math.floor(width/ratio)
 rp = ratio * patch_n
-plt.gray()
+
 
 filepath = "Models/SRGAN_BVTV_AUTOENCODER-10-09-00-05/"
 gpath = filepath + "05-G.hdf5"
 [BC_train, BC_test] = [0, 0]
-Networks = Networkclass(ratio, patch_n, batch_size)
+Networks = Networkclass(ratio, patch_n)
 GN = Networks.Generator_SRGAN_1()
 GN.load_weights(gpath)
 
@@ -82,8 +82,13 @@ def cut_boundary_dijkstra(Emap, ori, dest):
         elif dir == 3: my -=1
         elif dir == 4: mx -=1
     return cutMap
-def fill_mask(E_mask, Q):
+def fill_mask(E_mask):
     [ymax, xmax] = E_mask.shape
+    Q = []
+    for seed in range(E_mask.shape[0]):
+        if E_mask[seed, 0] == 0: Q.append((0, seed))
+    for seed in range(E_mask.shape[1]):
+        if E_mask[0, seed] == 0: Q.append((seed, 0))
     while Q:
         [x, y] = Q.pop()
         if x > 0:
@@ -106,12 +111,7 @@ def fill_mask(E_mask, Q):
 
 if __name__ == "__main__":
     # OD initialization
-    H_O = []
-    H_D = []
-    V_O = []
-    V_D = []
-    L_O = []
-    L_D = []
+    H_O, H_D, V_O, V_D, L_O, L_D = [], [], [], [], [], []
     for i in range(1, OV_rp-1):
         H_O.append((0, i))
         H_D.append((rp - 1, i))
@@ -125,6 +125,7 @@ if __name__ == "__main__":
     for subject in range(1, 12):
         LR_DV = np.expand_dims(np.expand_dims(Load_LRDV(ratio, subject), axis = 2), axis = 0)
         HR_DV = np.zeros((height, width))
+        Image = np.zeros((height, width, 3))
         cutting = np.zeros((height, width))
 
         # Windowing 해 나간다.
@@ -138,36 +139,51 @@ if __name__ == "__main__":
                 [GX, GY] = [j*ratio, i*ratio]
                 '''L-shape'''
                 if i > 0 and j > 0:
-                    OV_map = np.zeros((rp, rp))
-                    OV_old = np.zeros((rp, rp))
-                    OV_new = np.zeros((rp, rp))
-                    OV_old = HR_DV[GY:GY+rp, GX:GX+rp]
-                    OV_new = HR_patch
+                    OV_old = HR_DV[GY:GY+rp, GX:GX+rp].copy()
+                    OV_new = HR_patch.copy()
                     OV_map = (OV_old - OV_new)**2
                     OV_map[OV_rp:, OV_rp:] = math.inf
 
                     # boundary 구한 후 boundary 왼쪽 아래 부분은 1로 마스킹
                     start = datetime.now()
                     E_mask = cut_boundary_dijkstra(OV_map, L_O, L_D)
+                    E_cut = E_mask.copy()
                     print(datetime.now() - start)
 
-                    E_mask_old = E_mask
-                    for seed in range(rp):
-                        if E_mask[seed, 0] == 0:
-                            Q = [(0, seed)]
-                            break
-                    if not Q:
-                        for seed in range(rp):
-                            if E_mask[0, seed] == 0:
-                                Q=[(seed, 0)]
-                                break
-                    E_mask = fill_mask(E_mask, Q)
+                    Q = []
+                    for seed in range(E_mask.shape[0]):
+                        if E_mask[seed, 0] == 0: Q.append((0, seed))
+                    for seed in range(E_mask.shape[1]):
+                        if E_mask[0, seed] == 0: Q.append((seed, 0))
+                    E_mask = fill_mask(E_mask)
 
                     # HRDV에 붙여넣기
                     OV_cut = E_mask*OV_old + (1-E_mask)*OV_new
+
                     HR_DV[GY:GY+rp, GX:GX+OV_rp] = OV_cut[:, :OV_rp]
                     HR_DV[GY:GY+OV_rp, GX:GX+rp] = OV_cut[:OV_rp, :]
                     HR_DV[GY+OV_rp:GY+rp, GX+OV_rp:GX + rp] = HR_patch[OV_rp:, OV_rp:]
+                    # if i > 50:
+                    #     plt.gray()
+                    #     plt.subplot(321)
+                    #     plt.imshow(OV_old, origin='lower', vmin=0, vmax=1)
+                    #     plt.subplot(322)
+                    #     plt.imshow(OV_new, origin='lower', vmin=0, vmax=1)
+                    #     plt.subplot(323)
+                    #     plt.imshow(OV_cut, origin='lower', vmin=0, vmax=1)
+                    #     plt.subplot(324)
+                    #     plt.imshow(HR_DV[GY:GY+rp, GX:GX + rp], origin='lower', vmin=0, vmax=1)
+                    #     plt.subplot(325)
+                    #     plt.imshow(E_cut, origin='lower', vmin=0, vmax=1)
+                    #     plt.subplot(326)
+                    #     plt.imshow(E_mask, origin='lower', vmin=0, vmax=1)
+                    #     plt.show()
+
+                    Image[GY:GY+rp, GX:GX + rp, :] = np.stack((HR_DV[GY:GY+rp, GX:GX + rp],HR_DV[GY:GY+rp, GX:GX + rp],HR_DV[GY:GY+rp, GX:GX + rp]), axis = -1)
+                    for ii in range(E_cut.shape[0]):
+                        for jj in range(E_cut.shape[1]):
+                            if E_cut[ii, jj] == 1:
+                                Image[GY+ii, GX+jj, :] = (1, 0, 0)
 
                 elif i > 0: # Horizontal overlap j == 0
                     OV_old = HR_DV[GY:GY+OV_rp, :rp]
@@ -175,22 +191,24 @@ if __name__ == "__main__":
                     OV_map = (OV_old - OV_new)**2
                     # boundary 구한 후에 boundary 왼쪽 부분은 1로 마스킹
                     E_mask = cut_boundary_dijkstra(OV_map, H_O, H_D)
-                    E_mask_old = E_mask
-                    for seed in range(rp):
-                        if E_mask[seed, 0] == 0:
-                            Q = [(0, seed)]
-                            break
-                    if not Q:
-                        for seed in range(rp):
-                            if E_mask[0, seed] == 0:
-                                Q=[(seed, 0)]
-                                break
-                    E_mask = fill_mask(E_mask, Q)
+
+                    E_cut = E_mask.copy()
+                    Q = []
+                    for seed in range(E_mask.shape[0]):
+                        if E_mask[seed, 0] == 0: Q.append((0, seed))
+                    for seed in range(E_mask.shape[1]):
+                        if E_mask[0, seed] == 0: Q.append((seed, 0))
+                    E_mask = fill_mask(E_mask)
                     # Mask 대로 Overlap 부분 절단 mask의 1인 부분은 old, 0인 부분은 new
                     OV_cut = E_mask*OV_old + (1-E_mask)*OV_new
                     # HRDV에 붙여넣기
                     HR_DV[GY:GY+OV_rp, GX:GX+rp] = OV_cut
                     HR_DV[GY+OV_rp: GY+rp, GX:GX+rp] = HR_patch[OV_rp:, :]
+                    Image[GY:GY+rp, GX:GX + rp, :] = np.stack((HR_DV[GY:GY+rp, GX:GX + rp],HR_DV[GY:GY+rp, GX:GX + rp],HR_DV[GY:GY+rp, GX:GX + rp]), axis = -1)
+                    for ii in range(E_cut.shape[0]):
+                        for jj in range(E_cut.shape[1]):
+                            if E_cut[ii, jj] == 1:
+                                Image[GY+ii, GX+jj, :] = (1, 0, 0)
 
                 elif j > 0: # Vertical overlap
                     OV_old = HR_DV[:rp, GX:GX+OV_rp]
@@ -199,26 +217,27 @@ if __name__ == "__main__":
                     # boundary 구한 후에 boundary 아래 부분은 1로 마스킹
 
                     E_mask = cut_boundary_dijkstra(OV_map, V_O, V_D)
-
-                    E_mask_old = E_mask
-                    for seed in range(rp):
-                        if E_mask[seed, 0] == 0:
-                            Q = [(0, seed)]
-                            break
-                    if not Q:
-                        for seed in range(rp):
-                            if E_mask[0, seed] == 0:
-                                Q=[(seed, 0)]
-                                break
-                    E_mask = fill_mask(E_mask, Q)
+                    E_cut = E_mask.copy()
+                    Q = []
+                    for seed in range(E_mask.shape[0]):
+                        if E_mask[seed, 0] == 0: Q.append((0, seed))
+                    for seed in range(E_mask.shape[1]):
+                        if E_mask[0, seed] == 0: Q.append((seed, 0))
+                    E_mask = fill_mask(E_mask)
 
                     # Mask 대로 Overlap 부분 절단 mask의 1인 부분은 old, 0인 부분은 new
                     OV_cut = E_mask*OV_old + (1-E_mask)*OV_new
                     # HRDV에 붙여넣기
                     HR_DV[GY:GY+rp, GX:GX+OV_rp] = OV_cut
-                    HR_DV[:rp, GX+OV_rp: GX+rp] = np.squeeze(HR_patch[:, OV_rp:])
+                    HR_DV[:rp, GX+OV_rp: GX+rp] = HR_patch[:, OV_rp:]
 
+                    Image[GY:GY+rp, GX:GX + rp, :] = np.stack((HR_DV[GY:GY+rp, GX:GX + rp],HR_DV[GY:GY+rp, GX:GX + rp],HR_DV[GY:GY+rp, GX:GX + rp]), axis = -1)
+                    for ii in range(E_cut.shape[0]):
+                        for jj in range(E_cut.shape[1]):
+                            if E_cut[ii, jj] == 1:
+                                Image[GY+ii, GX+jj, :] = (1, 0, 0)
                 else: # Initial
                     HR_DV[:rp, :rp] = HR_patch
-
-        plt.imsave(f"{filepath}Quilt_subject{subject}.png", HR_DV, origin='lower')
+        plt.gray()
+        plt.imsave(f"{filepath}Quilt_subject{subject}.png", Image, origin='lower')
+        plt.imsave(f"{filepath}Quilt_subject{subject}_DV.png", HR_DV, origin='lower')

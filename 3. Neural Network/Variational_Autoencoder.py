@@ -22,12 +22,12 @@ if __name__ == '__main__':
     # Paramters
     [useDis, useSED, test] = [False, False, False]
     [ratio, patch_n] = [10, 8]
-    [epochs, batch_size, train_ratio] = [20, 64, 1]
+    [epochs, batch_size, train_ratio] = [50, 64, 1]
     rp = ratio*patch_n
     now = time.localtime()
 
     # Model Information
-    modelname="VAE-16"
+    modelname="VAE-32"
     filepath = f"Models/{modelname}/"
 
     # Initialization
