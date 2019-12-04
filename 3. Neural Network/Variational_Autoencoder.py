@@ -1,8 +1,6 @@
 import tensorflow as tf
-import time
-import os
+import time, os
 from keras import backend as K
-from keras import callbacks, regularizers
 from keras.utils import plot_model
 from keras.callbacks import EarlyStopping, ModelCheckpoint
 from datetime import datetime

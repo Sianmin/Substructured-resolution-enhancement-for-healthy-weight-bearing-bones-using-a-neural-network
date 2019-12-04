@@ -16,9 +16,9 @@ class Networks:
         [height, width] = [2080, 1883]
         [self.NY, self.NX] = [math.floor(height / ratio), math.floor(width / ratio)]
 
-    def LOSS_BVTV(self, y_true, y_pred):
-        BV_TV = K.square(K.mean(y_pred - y_true))
-        return BV_TV
+    def LOSS_BV(self, y_true, y_pred):
+        BV = K.abs(K.sum(y_pred) - K.sum(y_true))
+        return BV
 
     def build_vgg19(self):
         vgg = VGG19(include_top=False, input_shape=(self.rp, self.rp, 3))
@@ -26,53 +26,6 @@ class Networks:
         img = Input(shape=((self.rp, self.rp, 3)))
         img_features = vgg(img)
         return Model(img, img_features)
-
-    def VariationalAutoEncoder(self):
-        filter = 32
-        latent_dim = 32
-        kernel_size = 3
-        # 6400 -> 16
-        def sampling(args):
-            z_mean, z_log_var = args
-            batch, dim = K.shape(z_mean)[0], K.int_shape(z_mean)[1]
-            epsilon = K.random_normal(shape=(batch, dim), mean=0., stddev=1)
-            return z_mean + K.exp(0.5 * z_log_var) * epsilon
-        input_e = Input((self.rp, self.rp, 1))
-        x = input_e
-        for i in range(3):
-            filter *= 2
-            x = Conv2D(filters=filter,  kernel_size=kernel_size,  activation='relu',  strides=2,  padding='same')(x)
-        shape = K.int_shape(x)
-        x = Flatten()(x)
-        z_mean = Dense(latent_dim)(x)
-        z_log_var = Dense(latent_dim)(x)
-        z = Lambda(sampling)([z_mean, z_log_var])
-        encoder =  Model(input_e, [z_mean, z_log_var, z])
-
-        input_d = Input((latent_dim,), name='z_sampling')
-        x = Dense(shape[1] * shape[2] * shape[3], activation='relu')(input_d)
-        x = Reshape((shape[1] , shape[2] , shape[3]))(x)
-        for i in range(3):
-            x = Conv2DTranspose(filters=filter, kernel_size=kernel_size, activation='relu', strides=2, padding='same')(x)
-            filter //= 2
-
-        output_d = Conv2DTranspose(filters=1, kernel_size=kernel_size, activation='sigmoid', padding='same')(x)
-        decoder= Model(input_d, output_d)
-
-        output = decoder(encoder(input_e)[2])
-        vae = Model(input_e, output)
-        # optimizer = RAdam()
-        reconstruction_loss = binary_crossentropy(K.flatten(input_e), K.flatten(output))
-        reconstruction_loss *= (self.rp**2)
-        kl_loss = 1 + z_log_var - K.square(z_mean) - K.exp(z_log_var)
-        kl_loss = K.sum(kl_loss, axis=-1)
-        kl_loss *= -0.5
-        vae_loss =  K.mean(reconstruction_loss + kl_loss)
-        vae.add_loss(vae_loss)
-        vae.compile(optimizer = 'adam')
-        vae.summary()
-
-        return vae, encoder, decoder
 
     def AutoEncoder(self):
         def encoderNet():
@@ -117,8 +70,7 @@ class Networks:
         return autoencoder, encoder, decoder
 
     '''SRGAN-1'''
-
-    def Generator_SRGAN_1(self):
+    def Generator_SRGAN(self):
         def residual_block(layer_input, filters):
             d = Conv2D(filters, kernel_size=3, strides=1, padding='same', activation='relu')(layer_input)
             d = BatchNormalization(momentum=0.8)(d)
@@ -152,7 +104,7 @@ class Networks:
         generator.summary()
         return generator
 
-    def Discriminator_SRGAN_1(self):
+    def Discriminator_SRGAN(self):
         def d_block(layer_input, filters, strides=1, bn=True):
             d = Conv2D(filters, (3, 3), strides=strides, padding='same')(layer_input)
             d = LeakyReLU(alpha=0.2)(d)
@@ -179,34 +131,66 @@ class Networks:
         discriminator.summary()
         return discriminator
 
-    def SRGAN_1(self):
+    def SRGAN(self):
         optimizer = RAdam()
 
-        # AutoEncoder
-        autoencoder, encoder, decoder = self.AutoEncoder()
-        autoencoder.load_weights("Models/AUTOENCODER/01-G.hdf5")
-        # autoencoder.outputs = [autoencoder.layers[1].output]
-        encoder.trainable = False
+        # VGG Network
+        vgg = self.build_vgg19()
+        vgg.trainable = False
+        vgg.compile(loss='mse', optimizer = optimizer, metrics=['accuracy'])
+        vgg.summary()
+        # discriminator
+        discriminator = self.Discriminator_SRGAN()
+        discriminator.compile(optimizer=optimizer,
+                              loss=['binary_crossentropy'],
+                              metrics=['accuracy'])
+        discriminator.trainable = False
+        # Generator
+        generator = self.Generator_SRGAN()
+
+        gen_input = Input((self.patch_n, self.patch_n, 1))
+
+        fake = generator(gen_input)
+        fake_3c = Concatenate()([fake, fake, fake])
+        fake_feature = vgg(fake_3c)
+        # Combined Model
+        validity = discriminator(fake)
+        combined = Model([gen_input], [validity, fake_feature])
+        combined.compile(optimizer=optimizer,
+                         loss=['binary_crossentropy', 'mse'],
+                         loss_weights=[1e-3, 1])
+        combined.summary()
+        return vgg, generator, discriminator, combined
+
+    def SRGAN_BV(self):
+        optimizer = RAdam()
+
+        # VGG Network
+        vgg = self.build_vgg19()
+        vgg.trainable = False
+        vgg.compile(loss='mse', optimizer = optimizer, metrics=['accuracy'])
 
         # discriminator
-        discriminator = self.Discriminator_SRGAN_1()
+        discriminator = self.Discriminator_SRGAN()
         discriminator.compile(optimizer=optimizer,
                               loss=['binary_crossentropy'],
                               metrics=['accuracy'])
         discriminator.trainable = False
         discriminator.summary()
         # Generator
-        generator = self.Generator_SRGAN_1()
+        generator = self.Generator_SRGAN()
 
         gen_input = Input((self.patch_n, self.patch_n, 1))
 
         fake = generator(gen_input)
-        fake_feature = encoder(fake)
+        fake_3c = Concatenate()([fake, fake, fake])
+        fake_feature = vgg(fake_3c)
         # Combined Model
+
         validity = discriminator(fake)
         combined = Model([gen_input], [validity, fake_feature, fake])
         combined.compile(optimizer=optimizer,
-                         loss=['binary_crossentropy', 'mse', self.LOSS_BVTV],
-                         loss_weights=[1e-3, 1, 1])
+                         loss=['binary_crossentropy', 'mse', self.LOSS_BV],
+                         loss_weights=[1e-3, 1, 1e-3])
         combined.summary()
-        return encoder, generator, discriminator, combined
+        return vgg, generator, discriminator, combined

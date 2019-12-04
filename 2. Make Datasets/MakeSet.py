@@ -5,9 +5,9 @@ import matplotlib.pyplot as plt
 import h5py
 
 [ratio, patch_n, step] = [10, 8, 2]
-[useDis, useSED, showTest] = [True, True,  True]
+[useDis, useSED, showTest] = [False, False, False]
 Adjpatch_n = 0
-subject_n = 1
+subject_n = 7
 
 if __name__  == '__main__':
     [height, width] = [2080, 1883]
@@ -19,7 +19,7 @@ if __name__  == '__main__':
     data_n = math.ceil(NY/step)*math.ceil(NX/step)*8*subject_n #원본, 회전 90도, 180, 270, 원본 flip, 90 ,180, 270
     print("Total Data set {}".format(data_n))
 
-    with h5py.File(f"Dataset_r{ratio}_p{ratio*patch_n}_simple.hdf5", 'w') as f:
+    with h5py.File(f"Dataset_r{ratio}_p{ratio*patch_n}_validation.hdf5", 'w') as f:
         f.create_dataset('LR', (data_n, patch_n+2*Adjpatch_n, patch_n+2*Adjpatch_n, 1), dtype='float')
         f.create_dataset('HR', (data_n, patch_n*ratio, patch_n*ratio, 1) , dtype='float')
         LR_set = f['LR']
@@ -31,7 +31,7 @@ if __name__  == '__main__':
             f.create_dataset('SED', (data_n, patch_n+2*Adjpatch_n, patch_n+2*Adjpatch_n, 3), dtype='float')
             SED_set = f['SED']
 
-        for subject in range(1, subject_n + 1):
+        for subject in range(8, 12):
             LR_DV = np.zeros((NY, NX, 1))
             HR_DV = np.zeros((height, width, 1))
             if useDis: Displacement = np.zeros((NY+1, NX+1, 6))

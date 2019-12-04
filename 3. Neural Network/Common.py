@@ -1,10 +1,8 @@
 from keras.utils.io_utils import HDF5Matrix
 import keras
-import random
 import matplotlib.pyplot as plt
 import numpy as np
 import math
-import h5py
 
 [height, width] = [2080, 1883]
 
@@ -13,35 +11,19 @@ def rgb2gray(rgb):
     gray = 0.2989 * r + 0.5870 * g + 0.1140 * b
     return gray
 
-def LoadingDatasets(ratio, patch_n, train_ratio, useDis = False, useSED = False):
+def LoadingDatasets(ratio, patch_n, useDis = False, useSED = False):
     rp = ratio*patch_n
     # Data 불러오기 전처리
-    filename = f"../2. Make Datasets/Dataset_r{ratio}_p{rp}_simple.hdf5"
+    filename = f"../2. Make Datasets/Dataset_r{ratio}_p{rp}.hdf5"
     LR_set = HDF5Matrix(filename, 'LR')[:]
-    HR_set = HDF5Matrix(filename, 'HR')[:]
-
     datanum = LR_set.shape[0]
-    trainnum = int(datanum * train_ratio)
-    testnum = int(datanum * (1-train_ratio))
-    print(f"Total: {datanum}\tTrain: {trainnum}\tTest: {testnum}")
+    print(f"Training Data: {datanum}")
 
-    # trainset
-    LR_set_train = LR_set[0:trainnum, :, :, :]
-    LR_set_test = LR_set[trainnum:(trainnum + testnum), :, :, :]
-    HR_set_train = HR_set[0:trainnum, :, :, :]
-    HR_set_test= HR_set[trainnum:(trainnum + testnum), :, :, :]
-
-    [BC_train, BC_test, SED_train, SED_test] = [0, 0, 0, 0]
-
-    if useDis:
-        Dis_set = HDF5Matrix(filename, 'Dis')[:]
-        BC_train = Dis_set[0:trainnum, :, :, :]
-        BC_test = Dis_set[trainnum:(trainnum+testnum), :, :, :]
-    if useSED:
-        SED_set = HDF5Matrix(filename, 'SED')[:]
-        SED_train = SED_set[0:trainnum, :, :, :]
-        SED_test = SED_set[trainnum:(trainnum+testnum), :, :, :]
-    return LR_set_train, LR_set_test, HR_set_train, HR_set_test, BC_train, BC_test ,SED_train, SED_test
+    HR_set = HDF5Matrix(filename, 'HR')[:]
+    Dis_set, SED_set = [], []
+    if useDis: Dis_set = HDF5Matrix(filename, 'Dis')[:]
+    if useSED: SED_set = HDF5Matrix(filename, 'SED')[:]
+    return LR_set,  HR_set, Dis_set, SED_set
 
 def Load_LRDV(ratio, subject):
     # y가 0 이면 밑에서 부터임.
@@ -81,56 +63,29 @@ def Load_SED(ratio, subject):
     return SED
 
 class LiveDrawing(keras.callbacks.Callback):
-    def __init__(self, filepath, LR_set_train, HR_set_train, LR_set_test, HR_set_test, BC_train, BC_test, SED_train, SED_test, ratio, patch_n, epoch_show=False, useDis=False, useSED=False):
+    def __init__(self, filepath, LR_set_train, HR_set_train, BC_train,SED_train, ratio, patch_n, epoch_show=False, useDis=False, useSED=False):
         self.filepath = filepath
         self.LR_set_train, self.HR_set_train = LR_set_train, HR_set_train
-        self.LR_set_test, self.HR_set_test = LR_set_test, HR_set_test
         self.useDis, self.useSED = useDis, useSED
         self.epoch_show, self.rp, self.ratio, self.patch_n = epoch_show, ratio * patch_n, ratio, patch_n
         self.NY, self.NX = math.floor(height / self.ratio), math.floor(width / self.ratio)  # 각 축에 대해 나열되어야 하는 패치의 개수
-        if useDis: self.BC_train, self.BC_test = BC_train, BC_test
-        if useSED: self.SED_train, self.SED_test = SED_train, SED_test
+        if useDis: self.BC_train = BC_train
+        if useSED: self.SED_train = SED_train
 
     def on_train_begin(self, logs={}):
-        self.losses = []
-        self.val_losses = []
-        self.accuracy = []
-        self.val_accuracy = []
+        self.losses, self.val_losses, self.accuracy, self.val_accuracy = [], [], [], []
 
-    def on_epoch_end_GAN(self, epoch, model, logs={}):
+    def on_epoch_end(self, epoch, logs={}):
         plt.gray()
-        showProg = False
-        if showProg:
-            a = 1
-        num1 = int(random.random() * self.LR_set_train.shape[0])
-        num2 = int(random.random() * self.LR_set_test.shape[0])
-        num3 = int(random.random() * self.LR_set_test.shape[0])
-        if self.useDis:
-            result1 = model.predict([np.expand_dims(self.LR_set_train[num1, :, :, :], axis = 0), np.expand_dims(self.BC_train[num1, :, :, :], axis=0)])
-            result2 = model.predict([np.expand_dims(self.LR_set_test[num2, :, :, :], axis=0), np.expand_dims(self.BC_test[num2, :, :, :], axis=0)])
-            result3 = model.predict([np.expand_dims(self.LR_set_test[num3, :, :, :], axis=0), np.expand_dims(self.BC_test[num3, :, :, :], axis=0)])
-        else:
-            result1 = model.predict(np.expand_dims(self.LR_set_train[num1,:,:,:], axis = 0))
-            result2 = model.predict(np.expand_dims(self.LR_set_test[num2,:,:,:], axis = 0))
-            result3 = model.predict(np.expand_dims(self.LR_set_test[num3,:,:,:], axis = 0))
+        for i in range(1, 12):
+            total_img = self.predictModel(self.model, i)
+            plt.imsave(self.filepath + f'{epoch:02d}-predict_subject{i}.png', total_img[:, :, 0], vmin=0, vmax=1, origin='lower')
 
+    def on_epoch_end_GAN(self, epoch, model):
+        plt.gray()
         for i in range(1, 12):
             total_img = self.predictModel(model, i)
-            plt.imsave(self.filepath + f'{epoch:02d}-predict_subject{i}.png', total_img[:, :, 0], vmin=0, vmax=1,
-                       origin='lower')
-        fig = plt.figure(1)
-        plt.subplot(1, 4, 4); plt.imshow(total_img[:, :, 0], vmin=0, vmax=1, origin='lower')
-        plt.subplot(3, 4, 1) ;plt.imshow(self.LR_set_train[num1, :, :, 0], vmin=0, vmax=1)
-        plt.subplot(3, 4, 2) ;plt.imshow(self.HR_set_train[num1, :, :, 0], vmin=0, vmax=1)
-        plt.subplot(3, 4, 3) ;plt.imshow(result1[0, :, :, 0], vmin=0, vmax=1)
-        plt.subplot(3, 4, 5) ;plt.imshow(self.LR_set_test[num2, :, :, 0], vmin=0, vmax=1)
-        plt.subplot(3, 4, 6) ;plt.imshow(self.HR_set_test[num2, :, :, 0], vmin=0, vmax=1)
-        plt.subplot(3, 4, 7) ;plt.imshow(result2[0, :, :, 0], vmin=0, vmax=1)
-        plt.subplot(3, 4, 9) ;plt.imshow(self.LR_set_test[num3, :, :, 0], vmin=0, vmax=1)
-        plt.subplot(3, 4, 10) ;plt.imshow(self.HR_set_test[num3, :, :, 0], vmin=0, vmax=1)
-        plt.subplot(3, 4, 11) ;plt.imshow(result3[0, :, :, 0], vmin=0, vmax=1)
-        if self.epoch_show: plt.show(block=False)
-        fig.savefig(f"{self.filepath}EPOCH-{epoch:02d}.png", dpi=1200)
+            plt.imsave(self.filepath + f'{epoch:02d}-predict_subject{i}.png', total_img[:, :, 0], vmin=0, vmax=1, origin='lower')
 
     def predictModel(self, model, subject):
         [NY, NX, ratio, patch_n, rp] = [self.NY, self.NX, self.ratio, self.patch_n, self.rp]
@@ -146,6 +101,7 @@ class LiveDrawing(keras.callbacks.Callback):
 
         for winy in range(0, NY, patch_n):
             for winx in range(0, NX, patch_n):
+                ender = 0
                 i = NY - patch_n if winy > NY - patch_n else winy
                 j = NX - patch_n if winx > NX - patch_n else winx
 

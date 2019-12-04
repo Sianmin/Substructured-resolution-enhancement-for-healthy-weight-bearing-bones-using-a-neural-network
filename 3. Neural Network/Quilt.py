@@ -22,14 +22,7 @@ OV_width = 2
 OV_step, OV_rp = patch_n - OV_width, OV_width * ratio
 NY, NX = math.floor(height/ratio), math.floor(width/ratio)
 rp = ratio * patch_n
-
-
-filepath = "Models/SRGAN_BVTV_AUTOENCODER-10-09-00-05/"
-gpath = filepath + "05-G.hdf5"
-[BC_train, BC_test] = [0, 0]
 Networks = Networkclass(ratio, patch_n)
-GN = Networks.Generator_SRGAN_1()
-GN.load_weights(gpath)
 
 def cut_boundary_dijkstra(Emap, ori, dest):
     shape = Emap.shape
@@ -108,8 +101,7 @@ def fill_mask(E_mask):
                 E_mask[y + 1, x] = 1
                 Q.append((x, y + 1))
     return E_mask
-
-if __name__ == "__main__":
+def Quilt(filepath, model):
     # OD initialization
     H_O, H_D, V_O, V_D, L_O, L_D = [], [], [], [], [], []
     for i in range(1, OV_rp-1):
@@ -127,7 +119,7 @@ if __name__ == "__main__":
         HR_DV = np.zeros((height, width))
         Image = np.zeros((height, width, 3))
         cutting = np.zeros((height, width))
-
+        index = 0
         # Windowing 해 나간다.
         for winy in range(0, NY, OV_step):
             for winx in range(0, NX, OV_step):
@@ -135,7 +127,7 @@ if __name__ == "__main__":
                 j = NX - patch_n if winx > NX - patch_n else winx
                 print((subject, j, i))
                 LR_patch = LR_DV[:, i:i+patch_n, j:j+patch_n, :]
-                HR_patch = np.squeeze(np.squeeze(GN.predict(LR_patch), axis = 3), axis = 0)
+                HR_patch = np.squeeze(np.squeeze(model.predict(LR_patch), axis = 3), axis = 0)
                 [GX, GY] = [j*ratio, i*ratio]
                 '''L-shape'''
                 if i > 0 and j > 0:
@@ -163,22 +155,6 @@ if __name__ == "__main__":
                     HR_DV[GY:GY+rp, GX:GX+OV_rp] = OV_cut[:, :OV_rp]
                     HR_DV[GY:GY+OV_rp, GX:GX+rp] = OV_cut[:OV_rp, :]
                     HR_DV[GY+OV_rp:GY+rp, GX+OV_rp:GX + rp] = HR_patch[OV_rp:, OV_rp:]
-                    # if i > 50:
-                    #     plt.gray()
-                    #     plt.subplot(321)
-                    #     plt.imshow(OV_old, origin='lower', vmin=0, vmax=1)
-                    #     plt.subplot(322)
-                    #     plt.imshow(OV_new, origin='lower', vmin=0, vmax=1)
-                    #     plt.subplot(323)
-                    #     plt.imshow(OV_cut, origin='lower', vmin=0, vmax=1)
-                    #     plt.subplot(324)
-                    #     plt.imshow(HR_DV[GY:GY+rp, GX:GX + rp], origin='lower', vmin=0, vmax=1)
-                    #     plt.subplot(325)
-                    #     plt.imshow(E_cut, origin='lower', vmin=0, vmax=1)
-                    #     plt.subplot(326)
-                    #     plt.imshow(E_mask, origin='lower', vmin=0, vmax=1)
-                    #     plt.show()
-
                     Image[GY:GY+rp, GX:GX + rp, :] = np.stack((HR_DV[GY:GY+rp, GX:GX + rp],HR_DV[GY:GY+rp, GX:GX + rp],HR_DV[GY:GY+rp, GX:GX + rp]), axis = -1)
                     for ii in range(E_cut.shape[0]):
                         for jj in range(E_cut.shape[1]):
@@ -238,6 +214,8 @@ if __name__ == "__main__":
                                 Image[GY+ii, GX+jj, :] = (1, 0, 0)
                 else: # Initial
                     HR_DV[:rp, :rp] = HR_patch
+                index += 1
+                plt.gray()
         plt.gray()
-        plt.imsave(f"{filepath}Quilt_subject{subject}.png", Image, origin='lower')
-        plt.imsave(f"{filepath}Quilt_subject{subject}_DV.png", HR_DV, origin='lower')
+        plt.imsave(f"{filepath}subject{subject}_Quilt{OV_width}_boundary.png", Image, origin='lower')
+        plt.imsave(f"{filepath}subject{subject}_Quilt{OV_width}.png", HR_DV, origin='lower')

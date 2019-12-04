@@ -1,8 +1,8 @@
 # /CWD, D:\Project\Trabecualr_Subsutrcutred_Deep_learning
 '''
 MPA system
-거리 :ㅣ mm
-힘: N
+Space: mm
+Force: N
 modulus: MPa
 '''
 import numpy as np
@@ -168,9 +168,9 @@ def FEA_BONE(A_BMD, ratio, getDis = True, getVonStress = False, getSED = False, 
                           "*USE, ANSYS_NODE\n"
                           "*USE, ANSYS_MESH\n\nTYPE, 1\nREAL, 1\nR, 1,1\n\n"
                           "NSEL, ALL\n\n"
-                          "/SOLVE\n*USE, ANSYS_LOAD1\n*USE, ANSYS_POST1\n"
-                          "/SOLVE\n*USE, ANSYS_LOAD2\n*USE, ANSYS_POST2\n"
-                          "/SOLVE\n*USE, ANSYS_LOAD3\n*USE, ANSYS_POST3\n")
+                          "/SOLVE\n*USE, ANSYS_LOAD1\n*USE, ANSYS_POST1\n")
+                          # "/SOLVE\n*USE, ANSYS_LOAD2\n*USE, ANSYS_POST2\n"
+                          # "/SOLVE\n*USE, ANSYS_LOAD3\n*USE, ANSYS_POST3\n")
 
     # MAT 생성
     with open("ANSYS_MAT", 'w') as ansys_MAT:
@@ -229,11 +229,11 @@ def FEA_BONE(A_BMD, ratio, getDis = True, getVonStress = False, getSED = False, 
 
     # 하중 조건 부여
     AssignLoad("ANSYS_LOAD1", [2317, 24, 703, 28], NX, NY, FH_NODE, GT_NODE, FHC, FHS, GTC, GT_ref_node1, A_Flag)
-    AssignLoad("ANSYS_LOAD2", [1158, -15, 351, -8], NX, NY, FH_NODE, GT_NODE, FHC, FHS, GTC, GT_ref_node1, A_Flag)
-    AssignLoad("ANSYS_LOAD3", [1548, 56, 468, 35], NX, NY, FH_NODE, GT_NODE, FHC, FHS, GTC, GT_ref_node1, A_Flag)
+    # AssignLoad("ANSYS_LOAD2", [1158, -15, 351, -8], NX, NY, FH_NODE, GT_NODE, FHC, FHS, GTC, GT_ref_node1, A_Flag)
+    # AssignLoad("ANSYS_LOAD3", [1548, 56, 468, 35], NX, NY, FH_NODE, GT_NODE, FHC, FHS, GTC, GT_ref_node1, A_Flag)
 
     # Post-processing 생성
-    for case in range(1, 4):
+    for case in range(1, 2):
         with open("ANSYS_Post%d" % case, 'w') as ansys_POST:
             ansys_POST.write("ALLSEL\n"
                              "EQSLV, PCG, 1E-6\n"
@@ -303,7 +303,7 @@ if __name__ == '__main__':
             os.makedirs("r%d" % (ratio), exist_ok=True)
             os.makedirs("r%d/s%d" % (ratio, subject), exist_ok=True)
             import shutil
-            for load_case in range(1,4):
+            for load_case in range(1, 2):
                 shutil.move("Displacement%d"%load_case, "r%d/s%d/Displacement_r%d_s%d_c%d"%(ratio, subject, ratio, subject, load_case))
                 shutil.move("SED%d" % load_case,"r%d/s%d/SED_r%d_s%d_c%d" % (ratio, subject, ratio, subject, load_case))
 

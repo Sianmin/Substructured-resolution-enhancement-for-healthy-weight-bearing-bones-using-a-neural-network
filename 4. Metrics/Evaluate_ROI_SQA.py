@@ -4,13 +4,11 @@ import os
 import math
 from MetricsCommon import rgb2gray, readESB, readNSB
 
-side_length = 600
+side_length = 300
 resolution = 0.05
 noden = (side_length + 1) ** 2
-# ROI_name = ['Femoral head', 'Femoral neck', 'Intertrochanteric region']
-# ROI_origin = [(1300 ,350), (700, 550), (150, 900)]
-ROI_name = ['Femoral neck']
-ROI_origin = [(900, 350)]
+ROI_name = ['Femoral Head']
+ROI_origin = [(1250, 325)]
 
 def FEA_ROI(BMD, saveScript = False):
     def ClearFiles(saveScript):
@@ -44,14 +42,8 @@ def FEA_ROI(BMD, saveScript = False):
     with open("ANSYS_MAT", 'w') as ansys_MAT:
         for i in range(NY):
             for j in range(NX):
-                if BMD[i, j] > 0.84:
-                    ele = i * NX + j + 1
-                    ansys_MAT.write("MP, EX, {}, {:.2f}\n"
-                                    "MP, PRXY, {}, 0.3\n".format(ele, E0 * 0.1908 * (2 * BMD[i, j]) ** 2.39, ele))
-                elif BMD[i, j] >= 0:
-                    ele = i * NX + j + 1
-                    ansys_MAT.write("MP, EX, {}, {:.2f}\n"
-                                    "MP, PRXY, {}, 0.3\n".format(ele, E0 * 0.3044 * (2 * BMD[i, j]) ** 1.49 + 0.1, ele))
+                ele = i * NX + j + 1
+                ansys_MAT.write(f"MP, EX, {ele}, {E0 * (BMD[i, j] ** 3) + 0.001 * E0} \nMP, PRXY, {ele}, 0.3\n")  # for topology optimization
     with open("ANSYS_NODE", 'w') as ansys_NODE:
         for i in range(NY + 1):
             for j in range(NX + 1):
@@ -149,36 +141,36 @@ def getMorphometricIndices(ROI):
     print("{}%".format(np.sum(ROI)/(side_length**2)*100))
 
 if __name__ == '__main__':
-    epoch = 5
-    # 이미지 불러오기
     plt.gray()
     for subject in range(1, 2):
-        TargetModel = "SRGAN_BVTV_AUTOENCODER-10-09-00-05"
-        TargetPath = "../3. Neural Network/Models/Completed/{}/{:02d}-predict_subject{}.png".format(TargetModel, epoch, subject)
-        # TargetPath = "../3. Neural Network/Models/Completed/{}/Quilt_subject{}.png".format(TargetModel, subject)
-        # TargetPath = "../3. Neural Network/Models/{}/Quilt_subject{}.png".format(TargetModel, subject)
-        ref_img = rgb2gray(plt.imread('../0. Datas and Preprocessing/IMAGE/r1/IMG_r1_s{}.png'.format(subject)))
-        target_img = rgb2gray(plt.imread(TargetPath))
-        total_img = (plt.imread('../0. Datas and Preprocessing/IMAGE/r1/IMG_r1_s{}.png'.format(subject)))
-        print("Subject {}".format(subject))
-        print(np.sum(target_img))
-        print(np.sum(ref_img))
+        print(f"Subject {subject}")
+        total_img = plt.imread('../0. Datas and Preprocessing/IMAGE/r1/IMG_r1_s{}.png'.format(subject))
+        ref_img = rgb2gray(total_img)
         for roi_index in range(len(ROI_name)):
             print("Region {}".format(ROI_name[roi_index]))
             [ox, oy] = ROI_origin[roi_index]
-            ROI_ref = ref_img[oy:oy+side_length, ox:ox+side_length]
-            ROI_target = target_img[oy:oy+side_length, ox:ox+side_length]
-
-
-            where_img = plt.imread('../0. Datas and Preprocessing/IMAGE/r1/IMG_r1_s{}.png'.format(subject))
-            where_img[oy:oy+side_length, ox:ox+side_length, 1:3] = 0
-            total_img[oy:oy+side_length, ox:ox+side_length, 1:3] = 0
-            plt.imsave('Total_{}_Reference.png'.format(ROI_name[roi_index]), where_img)
-            plt.imsave('Total_Reference.png', total_img)
+            ROI_ref = ref_img[oy:oy + side_length, ox:ox + side_length]
             FEA_ROI(np.flip(ROI_ref, axis=0))
             getApparentElasticModulus()
             getMorphometricIndices(ROI_ref)
-            plt.imsave('{}_{}.png'.format(ROI_name[roi_index], TargetModel), ROI_target)
-            FEA_ROI(np.flip(ROI_target, axis=0), saveScript = True)
-            getApparentElasticModulus()
-            getMorphometricIndices(ROI_target)
+            for TargetModel, TargetPath in [("Bilinear", f"../4. Metrics/bilinear{subject}.png"),
+                                            ("ResNet-MSE", f"../3. Neural Network/Models/ResNet_MSE/subject{subject}.png"),
+                                            ("ResNet-MSE-Quilt", f"../3. Neural Network/Models/ResNet_MSE/subject{subject}_Quilt2.png"),
+                                            ("ResNet-MAE", f"../3. Neural Network/Models/ResNet_MAE/subject{subject}.png"),
+                                            ("ResNet-MAE-Quilt", f"../3. Neural Network/Models/ResNet_MAE/subject{subject}_Quilt2.png"),
+                                            ("SRGAN", f"../3. Neural Network/Models/SRGAN/subject{subject}.png"),
+                                            ("SRGAN-Quilt", f"../3. Neural Network/Models/SRGAN/subject{subject}_Quilt2.png")]:
+                    target_img = rgb2gray(plt.imread(TargetPath))
+                    ROI_target = target_img[oy:oy+side_length, ox:ox+side_length]
+                    FEA_ROI(np.flip(ROI_target, axis=0), saveScript = True)
+                    print(TargetModel)
+                    getApparentElasticModulus()
+                    getMorphometricIndices(ROI_target)
+
+                    # where_img = plt.imread('../0. Datas and Preprocessing/IMAGE/r1/IMG_r1_s{}.png'.format(subject))
+                    # where_img[oy:oy+side_length, ox:ox+side_length, 1:3] = 0
+                    # total_img[oy:oy+side_length, ox:ox+side_length, 1:3] = 0
+                    # plt.imsave('Total_{}_Reference.png'.format(ROI_name[roi_index]), where_img)
+                    # plt.imsave('Total_Reference.png', total_img)
+                    plt.imsave('{}_ref.png'.format(ROI_name[roi_index]), ROI_ref)
+                    plt.imsave('{}_{}.png'.format(ROI_name[roi_index], TargetModel), ROI_target)
